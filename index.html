@@ -473,10 +473,16 @@
             isShutDownState = false;
             resetDesktopPowerState();
             const wallEl = document.getElementById('desktop-wallpaper');
+            const lockWallEl = document.getElementById('lockscreen-wallpaper');
+            if (lockWallEl && LOCKSCREEN_WALLPAPER_URL) {
+                lockWallEl.style.backgroundImage = `url("${LOCKSCREEN_WALLPAPER_URL}")`;
+            }
             if (wallEl && !wallEl.style.backgroundImage) {
                 const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
-                wallEl.style.backgroundImage = `url("${defaultWall.url}")`;
-                currentWallpaperName = defaultWall.name;
+                if (defaultWall && defaultWall.url) {
+                    wallEl.style.backgroundImage = `url("${defaultWall.url}")`;
+                    currentWallpaperName = defaultWall.name;
+                }
             }
             showScreen('desktop-screen');
             triggerDesktopEnterAnimation();
@@ -502,6 +508,10 @@
             const taskbarIcons = document.getElementById('taskbar-apps-container');
             const taskbarRight = taskbar ? taskbar.lastElementChild : null;
 
+            if (iconsArea && !iconsArea.children.length) {
+                renderDesktopAndStartMenu();
+            }
+
             if (iconsArea) {
                 iconsArea.classList.remove('hidden', 'opacity-0', 'pointer-events-none', 'desktop-enter-icons');
                 iconsArea.style.opacity = '0';
@@ -524,14 +534,15 @@
 
             const t1 = setTimeout(() => {
                 if (iconsArea) {
-                    iconsArea.style.opacity = '';
+                    if (!iconsArea.children.length) renderDesktopAndStartMenu();
+                    iconsArea.style.opacity = '1';
                     iconsArea.classList.add('desktop-enter-icons');
                 }
                 if (taskbarIcons) taskbarIcons.style.opacity = '1';
                 if (taskbarRight) taskbarRight.style.opacity = '1';
                 if (taskbar) {
-                    taskbar.style.transform = '';
-                    taskbar.style.opacity = '';
+                    taskbar.style.transform = 'translateY(0)';
+                    taskbar.style.opacity = '1';
                     taskbar.classList.add('desktop-enter-taskbar');
                 }
             }, 300);
@@ -539,19 +550,30 @@
         }
 
         function startBootSequence(playSoundOnBoot = true) {
-            clearBootTimers();
+            if (hasBootStarted && playSoundOnBoot) {
+                clearBootTimers();
+            } else {
+                clearBootTimers();
+            }
+            hasBootStarted = true;
             isShutDownState = false;
             resetDesktopPowerState();
             closeAllWindows();
 
             const wallEl = document.getElementById('desktop-wallpaper');
+            const lockWallEl = document.getElementById('lockscreen-wallpaper');
+            const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+
+            if (lockWallEl && LOCKSCREEN_WALLPAPER_URL) {
+                lockWallEl.style.backgroundImage = `url("${LOCKSCREEN_WALLPAPER_URL}")`;
+            }
+
             if (wallEl && !wallEl.style.backgroundImage) {
                 const savedWall = loadSavedWallpaperState();
                 if (savedWall && savedWall.url) {
                     wallEl.style.backgroundImage = `url("${savedWall.url}")`;
-                    currentWallpaperName = savedWall.name || 'Hình nền tùy chỉnh';
-                } else {
-                    const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+                    currentWallpaperName = savedWall.name;
+                } else if (defaultWall && defaultWall.url) {
                     wallEl.style.backgroundImage = `url("${defaultWall.url}")`;
                     currentWallpaperName = defaultWall.name;
                 }
@@ -570,30 +592,25 @@
             if (pct) pct.textContent = '0%';
             if (statusText) statusText.textContent = 'Initializing True BIOS hardware checks...';
 
-            const tBiosStart = setTimeout(() => {
-                if (bar) bar.style.width = '25%';
-                if (pct) pct.textContent = '25%';
-            }, 150);
-
             const tBiosMid = setTimeout(() => {
-                if (bar) bar.style.width = '68%';
-                if (pct) pct.textContent = '68%';
+                if (bar) bar.style.width = '65%';
+                if (pct) pct.textContent = '65%';
                 if (statusText) statusText.textContent = 'Loading LongTrueOS UEFI boot loader...';
-            }, 850);
+            }, 900);
 
             const tBiosEnd = setTimeout(() => {
                 if (bar) bar.style.width = '100%';
                 if (pct) pct.textContent = '100%';
-            }, 1650);
+            }, 1850);
 
             const tLogo = setTimeout(() => {
                 showScreen('logo-screen');
-            }, 1850);
+            }, 2000);
 
             const tFadeLogo = setTimeout(() => {
                 const logoEl = document.getElementById('logo-screen');
                 if (logoEl) logoEl.style.opacity = '0';
-            }, 2850);
+            }, 3100);
 
             const tLoginSpin = setTimeout(() => {
                 showScreen('login-screen');
@@ -604,22 +621,22 @@
                         <span id="login-status-text">Đang xoay...</span>
                     `;
                 }
-            }, 3250);
+            }, 3550);
 
             const tWelcome = setTimeout(() => {
                 const statusRow = document.getElementById('login-status-row');
                 if (statusRow) {
                     statusRow.innerHTML = `<span class="text-xl sm:text-2xl font-bold tracking-wide text-white">Welcome</span>`;
                 }
-            }, 4250);
+            }, 4750);
 
             const tDesktop = setTimeout(() => {
                 showScreen('desktop-screen');
                 triggerDesktopEnterAnimation();
                 playSystemSound('startup');
-            }, 5100);
+            }, 5800);
 
-            bootTimers.push(tBiosStart, tBiosMid, tBiosEnd, tLogo, tFadeLogo, tLoginSpin, tWelcome, tDesktop);
+            bootTimers.push(tBiosMid, tBiosEnd, tLogo, tFadeLogo, tLoginSpin, tWelcome, tDesktop);
         }
 
         function resetDesktopPowerState() {
@@ -635,15 +652,18 @@
             if (iconsArea) {
                 iconsArea.style.opacity = '';
                 iconsArea.classList.remove('hidden', 'opacity-0', 'pointer-events-none', 'desktop-enter-icons');
+                if (!iconsArea.children.length) {
+                    renderDesktopAndStartMenu();
+                }
             }
             if (taskbarIcons) taskbarIcons.style.opacity = '1';
             if (taskbarRight) taskbarRight.style.opacity = '1';
             if (taskbar) {
+                taskbar.classList.remove('hidden', 'desktop-enter-taskbar');
                 taskbar.style.transition = '';
                 taskbar.style.transform = '';
                 taskbar.style.opacity = '';
                 taskbar.style.pointerEvents = '';
-                taskbar.classList.remove('hidden', 'desktop-enter-taskbar');
             }
             if (dimEl) dimEl.classList.add('hidden');
             if (popupEl) {
@@ -705,7 +725,9 @@
                 }, 360);
                 bootTimers.push(tHideElements);
 
-                if (dimEl) dimEl.classList.remove('hidden');
+                if (dimEl) {
+                    dimEl.classList.remove('hidden');
+                }
 
                 const tShowPopup = setTimeout(() => {
                     const titleEl = document.getElementById('power-popup-title');
@@ -717,7 +739,7 @@
                         playSystemSound('shutdown');
                     } else if (mode === 'reboot') {
                         if (titleEl) titleEl.textContent = 'Đang khởi động lại...';
-                        if (subEl) subEl.textContent = 'Đang làm mới hệ thống...';
+                        if (subEl) subEl.textContent = 'Đang làm mới trang web...';
                         playSystemSound('reboot');
                     } else {
                         if (titleEl) titleEl.textContent = 'Đang đăng xuất...';
@@ -726,7 +748,8 @@
                     }
 
                     if (popupEl) {
-                        popupEl.classList.remove('hidden', 'power-popup-show');
+                        popupEl.classList.remove('hidden');
+                        popupEl.classList.remove('power-popup-show');
                         void popupEl.offsetWidth;
                         popupEl.classList.add('power-popup-show');
                     }
@@ -744,7 +767,11 @@
                         isShutDownState = true;
                         showScreen('shutdown-screen');
                     } else if (mode === 'reboot') {
-                        startBootSequence(true);
+                        try {
+                            window.location.reload();
+                        } catch (err) {
+                            window.location.href = window.location.href;
+                        }
                     } else {
                         showScreen('login-screen');
                         const statusRow = document.getElementById('login-status-row');
@@ -771,7 +798,11 @@
                 }, 1550);
                 bootTimers.push(tFinish);
             } catch (err) {
-                resetDesktopPowerState();
+                if (mode === 'reboot') {
+                    window.location.reload();
+                } else {
+                    resetDesktopPowerState();
+                }
             }
         }
 
@@ -783,24 +814,23 @@
         }
 
         /* =====================================================================
-           DANH SÁCH ỨNG DỤNG & HÌNH NỀN TRÊN LONGTRUEOS
+           DANH SÁCH ỨNG DỤNG & TRÒ CHƠI TRÊN LONGTRUEOS
            ===================================================================== */
         const APPS_CONFIG = [
             { id: 'sysinfo', title: 'Kiểm Tra Hệ Thống', icon: 'fa-microchip', color: 'from-cyan-500 to-blue-600', width: 560, height: 440, pinnedTaskbar: true },
             { id: 'calculator', title: 'Máy Tính', icon: 'fa-calculator', color: 'from-sky-500 to-indigo-600', width: 320, height: 430, pinnedTaskbar: true },
             { id: 'settings', title: 'Cài Đặt', icon: 'fa-gear', color: 'from-slate-600 to-slate-800', width: 620, height: 450, pinnedTaskbar: true },
             { id: 'minesweeper', title: 'Dò Mìn', icon: 'fa-bomb', color: 'from-rose-500 to-red-700', width: 400, height: 470, pinnedTaskbar: true },
+            { id: 'chess', title: 'Cờ Vua', icon: 'fa-chess-king', color: 'from-amber-500 to-yellow-700', width: 460, height: 520, pinnedTaskbar: false },
             { id: 'media', title: 'Media Player', icon: 'fa-circle-play', color: 'from-purple-500 to-fuchsia-600', width: 460, height: 340, pinnedTaskbar: false },
             { id: 'hwtest', title: 'Test Phím & Chuột', icon: 'fa-keyboard', color: 'from-amber-500 to-orange-600', width: 640, height: 470, pinnedTaskbar: false },
             { id: 'caro', title: 'Cờ Caro', icon: 'fa-border-all', color: 'from-emerald-500 to-teal-700', width: 440, height: 490, pinnedTaskbar: false },
             { id: 'wheel', title: 'Vòng Quay May Mắn', icon: 'fa-dharmachakra', color: 'from-pink-500 to-rose-600', width: 480, height: 490, pinnedTaskbar: false }
         ];
 
+        const LOCKSCREEN_WALLPAPER_URL = 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(41).png';
+
         const WALLPAPER_PRESETS = [
-            {
-                name: 'true',
-                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/6795eda8ecd648ffad11fc52ada415a6.jpg'
-            },
             {
                 name: 'True & Bartleby Beach',
                 url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/True%20and%20the%20Rainbow%20Kingdom%20True%20x%20Bartleby%20in%20the%20beach.png'
@@ -814,20 +844,24 @@
                 url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/True%20and%20the%20Rainbow%20kingdom%20True%20x%20Zee%20Beach%20Sunglasses.png'
             },
             {
-                name: 'True Rainbow Screenshot 41',
-                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(41).png'
-            },
-            {
                 name: 'True Rainbow Screenshot 37',
                 url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(37).png'
+            },
+            {
+                name: 'True Rainbow Screenshot 41',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(41).png'
             },
             {
                 name: 'True Rainbow Screenshot 34',
                 url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(34).png'
             },
             {
-                name: 'True Rainbow 20261123',
+                name: 'True Rainbow 20261123 130654',
                 url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot_20261123_130654.png'
+            },
+            {
+                name: 'True Rainbow 1',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/6795eda8ecd648ffad11fc52ada415a6.jpg'
             },
             {
                 name: 'True Rainbow 2',
@@ -871,12 +905,10 @@
             }
         ];
 
-        const BROKEN_WALLPAPER_URL = 'https://dn710903.ca.archive.org/0/items/truerainbowwallpaper/d58f0986c571452f1c60.jpg';
-        const LOCKSCREEN_WALLPAPER_URL = WALLPAPER_PRESETS[4].url;
         let currentWallpaperName = 'True Rainbow Screenshot 34';
         let customWallpapers = [];
-        const WALLPAPER_STORAGE_KEY = 'longtrueos_saved_wallpaper_v1';
-        const CUSTOM_WALLPAPERS_STORAGE_KEY = 'longtrueos_custom_wallpapers_v1';
+        const WALLPAPER_STORAGE_KEY = 'longtrueos_saved_wallpaper_v2';
+        const CUSTOM_WALLPAPERS_STORAGE_KEY = 'longtrueos_custom_wallpapers_v2';
 
         function loadSavedWallpaperState() {
             try {
@@ -884,10 +916,6 @@
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
                 if (parsed && typeof parsed.url === 'string' && parsed.url.trim()) {
-                    if (parsed.url.trim() === BROKEN_WALLPAPER_URL || parsed.name === 'True Rainbow 11') {
-                        localStorage.removeItem(WALLPAPER_STORAGE_KEY);
-                        return null;
-                    }
                     return {
                         url: parsed.url,
                         name: parsed.name || 'Hình nền tùy chỉnh'
@@ -903,7 +931,7 @@
                 if (!raw) return [];
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed)) {
-                    return parsed.filter(item => item && typeof item.url === 'string' && item.url.trim() && item.url.trim() !== BROKEN_WALLPAPER_URL);
+                    return parsed.filter(item => item && typeof item.url === 'string' && item.url.trim());
                 }
             } catch (_) {}
             return [];
@@ -972,13 +1000,13 @@
             playSystemSound('click');
 
             const savedWall = loadSavedWallpaperState();
+            const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
             const isCurrentlyUsingRemoved = removed && (
                 currentWallpaperName === removed.name ||
                 (savedWall && savedWall.url === removed.url)
             );
 
             if (isCurrentlyUsingRemoved) {
-                const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
                 setDesktopWallpaper(defaultWall.url, defaultWall.name);
             } else {
                 const activeWin = document.getElementById('win-settings');
@@ -1000,6 +1028,7 @@
             const startApps = document.getElementById('start-menu-apps');
 
             if (iconsArea) {
+                iconsArea.classList.remove('hidden', 'opacity-0');
                 iconsArea.innerHTML = APPS_CONFIG.map(app => `
                     <button type="button" onclick="openAppWindow('${app.id}')"
                         class="group flex flex-col items-center justify-start px-1 py-1.5 rounded-md hover:bg-white/15 focus:bg-white/20 transition text-center select-none">
@@ -1334,6 +1363,8 @@
                 renderCalculatorApp(container);
             } else if (appId === 'settings') {
                 renderSettingsApp(container);
+            } else if (appId === 'chess') {
+                renderChessApp(container);
             } else if (appId === 'media') {
                 renderMediaPlayerApp(container);
             } else if (appId === 'hwtest') {
@@ -1347,6 +1378,7 @@
             }
         }
 
+        /* --- 1. Kiểm Tra Hệ Thống --- */
         function renderSystemInfoApp(container) {
             let gpuRenderer = 'Không thể truy xuất WebGL';
             try {
@@ -1404,6 +1436,7 @@
             `;
         }
 
+        /* --- 2. Máy Tính --- */
         let calcExpr = '';
         function renderCalculatorApp(container) {
             const buttons = [
@@ -1457,13 +1490,12 @@
             if (disp) disp.textContent = calcExpr || '0';
         }
 
+        /* --- 3. Cài Đặt (Cá Nhân Hóa & System) --- */
         let currentSettingsTab = 'personalization';
 
         function renderSettingsApp(container) {
             const allWallpapers = [...WALLPAPER_PRESETS, ...customWallpapers];
-            const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
-            const defaultWallIndex = Math.max(0, WALLPAPER_PRESETS.findIndex(w => w.name === 'True Rainbow Screenshot 34'));
-            const safeCurrentName = String(currentWallpaperName || defaultWall.name)
+            const safeCurrentName = String(currentWallpaperName || 'True Rainbow Screenshot 34')
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;');
@@ -1474,9 +1506,9 @@
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;');
-                const isActive = currentWallpaperName === wp.name;
                 const isCustom = idx >= WALLPAPER_PRESETS.length;
                 const customIdx = idx - WALLPAPER_PRESETS.length;
+                const isActive = currentWallpaperName === wp.name;
                 const deleteBtnHtml = isCustom
                     ? '<button type="button" onclick="deleteCustomWallpaper(' + customIdx + ', event)" title="Xóa hình nền này" ' +
                       'class="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-rose-600/90 hover:bg-rose-700 text-white flex items-center justify-center shadow transition">' +
@@ -1490,11 +1522,14 @@
                     '<div class="h-24 w-full bg-cover bg-center" style="background-image: url(&quot;' + safeUrl + '&quot;)"></div>' +
                     '<div class="px-2.5 py-1.5 font-semibold text-slate-700 truncate flex items-center justify-between gap-1">' +
                     '<span class="truncate">' + displayName + '</span>' +
-                    '<span class="text-[10px] ' + (isActive ? 'text-sky-600 font-bold' : 'text-slate-400') + '">' + (isActive ? 'Đang dùng' : '#' + (idx + 1)) + '</span>' +
+                    '<span class="text-[10px] ' + (isActive ? 'text-emerald-600 font-bold' : 'text-sky-600') + ' shrink-0">' + (isActive ? 'Đang dùng' : '#' + (idx + 1)) + '</span>' +
                     '</div>' +
                     '</div>'
                 );
             }).join('');
+
+            const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+            const defaultIdx = Math.max(0, allWallpapers.findIndex(w => w.name === defaultWall.name));
 
             const personalizationHtml =
                 '<div class="space-y-3">' +
@@ -1503,7 +1538,7 @@
                 '<div class="font-bold text-sm text-slate-900">Hình Nền Desktop</div>' +
                 '<div class="text-slate-500">Hiện tại: <span class="font-semibold text-slate-700">' + safeCurrentName + '</span></div>' +
                 '</div>' +
-                '<button type="button" onclick="selectWallpaperByIndex(' + defaultWallIndex + ')" ' +
+                '<button type="button" onclick="selectWallpaperByIndex(' + defaultIdx + ')" ' +
                 'class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold">' +
                 'Khôi phục mặc định (' + defaultWall.name + ')' +
                 '</button>' +
@@ -1561,6 +1596,412 @@
                 '</div>';
         }
 
+        /* --- 4. Trò Chơi: Cờ Vua (Đen - Trắng, Bot & 2 Người, Âm Thanh, Undo) --- */
+        const CHESS_GLYPHS = {
+            wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
+            bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟'
+        };
+
+        const CHESS_PIECE_VALUES = {
+            P: 100,
+            N: 320,
+            B: 330,
+            R: 500,
+            Q: 900,
+            K: 20000
+        };
+
+        function createInitialChessBoard() {
+            return [
+                ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
+                ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+                ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR']
+            ];
+        }
+
+        let chessMode = 'bot';
+        let chessBoard = createInitialChessBoard();
+        let chessTurn = 'w';
+        let chessSelected = null;
+        let chessLegalTargets = [];
+        let chessGameOver = false;
+        let chessStatusText = '';
+        let chessHistory = [];
+        let chessBotTimer = null;
+
+        function clearChessBotTimer() {
+            if (chessBotTimer) {
+                clearTimeout(chessBotTimer);
+                chessBotTimer = null;
+            }
+        }
+
+        function saveChessSnapshot() {
+            chessHistory.push({
+                board: chessBoard.map(row => [...row]),
+                turn: chessTurn,
+                gameOver: chessGameOver,
+                statusText: chessStatusText
+            });
+        }
+
+        function resetChessGame(mode = chessMode) {
+            clearChessBotTimer();
+            chessMode = mode;
+            chessBoard = createInitialChessBoard();
+            chessTurn = 'b';
+            chessSelected = null;
+            chessLegalTargets = [];
+            chessGameOver = false;
+            chessHistory = [];
+            chessStatusText = chessMode === 'bot'
+                ? 'Lượt của Đen (Bạn) đi trước vs Bot Trắng'
+                : 'Lượt của Đen (Người 1) đi trước';
+        }
+
+        function playChessMoveSound(captured = false, inCheck = false) {
+            if (inCheck) {
+                playTone(523.25, 0.09, 'sawtooth', 0, 0.14);
+                playTone(783.99, 0.14, 'sawtooth', 0.08, 0.14);
+            } else if (captured) {
+                playTone(330, 0.08, 'triangle', 0, 0.16);
+                playTone(493.88, 0.12, 'triangle', 0.06, 0.14);
+            } else {
+                playTone(540, 0.055, 'sine', 0, 0.12);
+            }
+        }
+
+        function refreshChessWindowUI() {
+            const winBody = document.querySelector('#win-chess .window-body');
+            if (winBody) {
+                renderChessApp(winBody);
+            }
+        }
+
+        function undoChessMove() {
+            if (!chessHistory.length) return;
+            clearChessBotTimer();
+            playSystemSound('click');
+
+            let snap = chessHistory.pop();
+            if (chessMode === 'bot' && snap && snap.turn === 'w' && chessHistory.length > 0) {
+                snap = chessHistory.pop();
+            }
+
+            if (snap) {
+                chessBoard = snap.board.map(row => [...row]);
+                chessTurn = snap.turn;
+                chessGameOver = snap.gameOver;
+                chessStatusText = snap.statusText;
+                chessSelected = null;
+                chessLegalTargets = [];
+            }
+            refreshChessWindowUI();
+        }
+
+        function isChessSquareInside(r, c) {
+            return r >= 0 && r < 8 && c >= 0 && c < 8;
+        }
+
+        function cloneChessBoardWithMove(board, fr, fc, tr, tc) {
+            const next = board.map(row => [...row]);
+            let piece = next[fr][fc];
+            next[tr][tc] = piece;
+            next[fr][fc] = '';
+            if (piece === 'wP' && tr === 7) next[tr][tc] = 'wQ';
+            if (piece === 'bP' && tr === 0) next[tr][tc] = 'bQ';
+            return next;
+        }
+
+        function findChessKing(board, color) {
+            const target = `${color}K`;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (board[r][c] === target) return [r, c];
+                }
+            }
+            return null;
+        }
+
+        function isChessSquareAttackedBy(board, tr, tc, byColor) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = board[r][c];
+                    if (!p || p[0] !== byColor) continue;
+                    const type = p[1];
+                    if (type === 'P') {
+                        const dir = byColor === 'w' ? 1 : -1;
+                        if (r + dir === tr && (c - 1 === tc || c + 1 === tc)) return true;
+                    } else if (type === 'N') {
+                        const jumps = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
+                        if (jumps.some(([dr, dc]) => r + dr === tr && c + dc === tc)) return true;
+                    } else if (type === 'K') {
+                        if (Math.abs(r - tr) <= 1 && Math.abs(c - tc) <= 1 && (r !== tr || c !== tc)) return true;
+                    } else {
+                        const dirs = [];
+                        if (type === 'R' || type === 'Q') dirs.push([-1, 0], [1, 0], [0, -1], [0, 1]);
+                        if (type === 'B' || type === 'Q') dirs.push([-1, -1], [-1, 1], [1, -1], [1, 1]);
+                        for (const [dr, dc] of dirs) {
+                            let nr = r + dr;
+                            let nc = c + dc;
+                            while (isChessSquareInside(nr, nc)) {
+                                if (nr === tr && nc === tc) return true;
+                                if (board[nr][nc]) break;
+                                nr += dr;
+                                nc += dc;
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function isChessKingInCheck(board, color) {
+            const kingPos = findChessKing(board, color);
+            if (!kingPos) return false;
+            const enemy = color === 'w' ? 'b' : 'w';
+            return isChessSquareAttackedBy(board, kingPos[0], kingPos[1], enemy);
+        }
+
+        function getPseudoChessMoves(board, r, c) {
+            const piece = board[r][c];
+            if (!piece) return [];
+            const color = piece[0];
+            const type = piece[1];
+            const moves = [];
+
+            if (type === 'P') {
+                const dir = color === 'w' ? 1 : -1;
+                const startRow = color === 'w' ? 1 : 6;
+                if (isChessSquareInside(r + dir, c) && !board[r + dir][c]) {
+                    moves.push([r + dir, c]);
+                    if (r === startRow && !board[r + dir * 2][c]) {
+                        moves.push([r + dir * 2, c]);
+                    }
+                }
+                for (const dc of [-1, 1]) {
+                    const nr = r + dir;
+                    const nc = c + dc;
+                    if (isChessSquareInside(nr, nc) && board[nr][nc] && board[nr][nc][0] !== color) {
+                        moves.push([nr, nc]);
+                    }
+                }
+            } else if (type === 'N') {
+                const jumps = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
+                for (const [dr, dc] of jumps) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (isChessSquareInside(nr, nc) && (!board[nr][nc] || board[nr][nc][0] !== color)) {
+                        moves.push([nr, nc]);
+                    }
+                }
+            } else if (type === 'K') {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (isChessSquareInside(nr, nc) && (!board[nr][nc] || board[nr][nc][0] !== color)) {
+                            moves.push([nr, nc]);
+                        }
+                    }
+                }
+            } else {
+                const dirs = [];
+                if (type === 'R' || type === 'Q') dirs.push([-1, 0], [1, 0], [0, -1], [0, 1]);
+                if (type === 'B' || type === 'Q') dirs.push([-1, -1], [-1, 1], [1, -1], [1, 1]);
+                for (const [dr, dc] of dirs) {
+                    let nr = r + dr;
+                    let nc = c + dc;
+                    while (isChessSquareInside(nr, nc)) {
+                        if (!board[nr][nc]) {
+                            moves.push([nr, nc]);
+                        } else {
+                            if (board[nr][nc][0] !== color) moves.push([nr, nc]);
+                            break;
+                        }
+                        nr += dr;
+                        nc += dc;
+                    }
+                }
+            }
+            return moves;
+        }
+
+        function getLegalChessMoves(board, r, c) {
+            const piece = board[r][c];
+            if (!piece) return [];
+            const color = piece[0];
+            return getPseudoChessMoves(board, r, c).filter(([tr, tc]) => {
+                const next = cloneChessBoardWithMove(board, r, c, tr, tc);
+                return !isChessKingInCheck(next, color);
+            });
+        }
+
+        function getAllLegalChessMovesForColor(board, color) {
+            const all = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (board[r][c] && board[r][c][0] === color) {
+                        for (const [tr, tc] of getLegalChessMoves(board, r, c)) {
+                            all.push({ fr: r, fc: c, tr, tc });
+                        }
+                    }
+                }
+            }
+            return all;
+        }
+
+        function finalizeChessTurnAfterMove() {
+            const nextColor = chessTurn === 'w' ? 'b' : 'w';
+            const nextMoves = getAllLegalChessMovesForColor(chessBoard, nextColor);
+            const inCheck = isChessKingInCheck(chessBoard, nextColor);
+
+            if (nextMoves.length === 0) {
+                chessGameOver = true;
+                if (inCheck) {
+                    const winnerLabel = nextColor === 'w' ? 'Đen' : 'Trắng';
+                    chessStatusText = `Chiếu hết! ${winnerLabel} thắng ván cờ!`;
+                    playSystemSound('notify');
+                } else {
+                    chessStatusText = 'Hòa cờ (Stalemate)!';
+                    playSystemSound('click');
+                }
+                return;
+            }
+
+            chessTurn = nextColor;
+            const turnLabel = chessMode === 'bot'
+                ? (chessTurn === 'b' ? 'Lượt của Đen (Bạn)' : 'Bot Trắng đang suy nghĩ...')
+                : (chessTurn === 'b' ? 'Lượt của Đen (Người 1)' : 'Lượt của Trắng (Người 2)');
+            chessStatusText = inCheck ? `${turnLabel} — Đang bị chiếu!` : turnLabel;
+        }
+
+        function chooseBotChessMove(board) {
+            const moves = getAllLegalChessMovesForColor(board, 'w');
+            if (!moves.length) return null;
+            let bestScore = -Infinity;
+            let bestMoves = [];
+
+            for (const mv of moves) {
+                const target = board[mv.tr][mv.tc];
+                let score = target ? (CHESS_PIECE_VALUES[target[1]] || 100) : 0;
+                const next = cloneChessBoardWithMove(board, mv.fr, mv.fc, mv.tr, mv.tc);
+                if (isChessKingInCheck(next, 'b')) score += 60;
+                if (mv.tr >= 3 && mv.tr <= 4 && mv.tc >= 3 && mv.tc <= 4) score += 15;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMoves = [mv];
+                } else if (score === bestScore) {
+                    bestMoves.push(mv);
+                }
+            }
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        }
+
+        function handleChessSquareClick(r, c) {
+            if (chessGameOver || chessBotTimer) return;
+            if (chessMode === 'bot' && chessTurn !== 'b') return;
+
+            const clickedPiece = chessBoard[r][c];
+            if (chessSelected) {
+                const isTarget = chessLegalTargets.some(([tr, tc]) => tr === r && tc === c);
+                if (isTarget) {
+                    makeChessMove(chessSelected[0], chessSelected[1], r, c);
+                    return;
+                }
+            }
+
+            if (clickedPiece && clickedPiece[0] === chessTurn) {
+                chessSelected = [r, c];
+                chessLegalTargets = getLegalChessMoves(chessBoard, r, c);
+                playSystemSound('click');
+                refreshChessWindowUI();
+            } else {
+                chessSelected = null;
+                chessLegalTargets = [];
+                refreshChessWindowUI();
+            }
+        }
+
+        function renderChessApp(container) {
+            if (!Array.isArray(chessBoard) || chessBoard.length !== 8) {
+                resetChessGame(chessMode);
+            }
+            if (!chessStatusText) {
+                chessStatusText = chessMode === 'bot' ? 'Lượt của Đen (Bạn) đi trước vs Bot Trắng' : 'Lượt của Đen (Người 1) đi trước';
+            }
+
+            container.innerHTML = `
+                <div class="flex flex-col items-center gap-2.5 h-full justify-between">
+                    <div class="w-full flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div class="inline-flex rounded-lg bg-slate-200 p-0.5">
+                            <button type="button" onclick="resetChessGame('bot'); refreshChessWindowUI(); playSystemSound('click');"
+                                class="px-2.5 py-1 rounded-md font-semibold transition ${chessMode === 'bot' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-300/70'}">
+                                Chơi với Bot
+                            </button>
+                            <button type="button" onclick="resetChessGame('pvp'); refreshChessWindowUI(); playSystemSound('click');"
+                                class="px-2.5 py-1 rounded-md font-semibold transition ${chessMode === 'pvp' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-300/70'}">
+                                2 Người chơi
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="undoChessMove()" ${chessHistory.length ? '' : 'disabled'}
+                                class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-40 disabled:pointer-events-none text-white font-semibold transition">
+                                Undo
+                            </button>
+                            <button type="button" onclick="resetChessGame(chessMode); refreshChessWindowUI(); playSystemSound('click');"
+                                class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold transition">
+                                Ván mới
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-xs font-bold text-slate-800 text-center min-h-[18px]">${chessStatusText}</div>
+                    <div class="grid grid-cols-8 bg-neutral-900 p-1 rounded-xl shadow-md border border-neutral-800">
+                        ${chessBoard.map((row, r) => row.map((piece, c) => {
+                            const isLight = (r + c) % 2 === 0;
+                            const isUpperHalf = r < 4;
+                            const isSelected = chessSelected && chessSelected[0] === r && chessSelected[1] === c;
+                            const isTarget = chessLegalTargets.some(([tr, tc]) => tr === r && tc === c);
+                            const glyph = piece ? (CHESS_GLYPHS[piece] || '') : '';
+                            const isWhitePiece = piece && piece[0] === 'w';
+                            const pieceTone = piece
+                                ? (isWhitePiece
+                                    ? 'text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.98)] drop-shadow-[0_2px_2px_rgba(0,0,0,0.95)]'
+                                    : 'text-neutral-950 [text-shadow:-1px_-1px_0_#ffffff,1px_-1px_0_#ffffff,-1px_1px_0_#ffffff,1px_1px_0_#ffffff,0_0_3px_#ffffff]')
+                                : '';
+
+                            let squareBg = isUpperHalf
+                                ? (isLight ? 'bg-white hover:bg-neutral-100 text-neutral-900' : 'bg-neutral-600 hover:bg-neutral-500 text-white')
+                                : (isLight ? 'bg-neutral-300 hover:bg-neutral-200 text-neutral-900' : 'bg-neutral-950 hover:bg-neutral-900 text-white');
+                            if (isSelected) squareBg = 'bg-sky-400/90 ring-2 ring-inset ring-sky-700';
+                            else if (isTarget) squareBg = piece ? 'bg-rose-500/80 ring-2 ring-inset ring-rose-900' : 'bg-emerald-400/85';
+
+                            return `
+                                <button type="button" onclick="handleChessSquareClick(${r}, ${c})"
+                                    class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-lg sm:text-xl font-bold transition relative ${squareBg} ${pieceTone}">
+                                    <span>${glyph}</span>
+                                    ${isTarget && !piece ? '<span class="w-2.5 h-2.5 rounded-full bg-emerald-900/80"></span>' : ''}
+                                </button>
+                            `;
+                        }).join('')).join('')}
+                    </div>
+
+                    <div class="w-full flex items-center justify-between text-[11px] text-slate-500 px-1">
+                        <span>Đen có viền trắng (dưới) đi trước • Trắng (trên)</span>
+                        <span>${chessMode === 'bot' ? 'Chế độ: Người (Đen) vs Bot (Trắng)' : 'Chế độ: 2 Người chơi'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        /* --- 5. Media Player --- */
         const MEDIA_PLAYLIST = [
             {
                 title: 'Gia Đình Nhỏ Hạnh Phúc To (Nhạc Thiếu Nhi)',
@@ -1607,12 +2048,27 @@
             if (!mediaAudioEl) {
                 mediaAudioEl = new Audio();
                 mediaAudioEl.preload = 'metadata';
-                mediaAudioEl.addEventListener('ended', () => nextMediaTrack(false));
-                mediaAudioEl.addEventListener('play', () => { isTrackPlaying = true; updateMediaPlayerUI(); });
-                mediaAudioEl.addEventListener('pause', () => { isTrackPlaying = false; updateMediaPlayerUI(); });
-                mediaAudioEl.addEventListener('timeupdate', () => updateMediaProgressUI());
-                mediaAudioEl.addEventListener('loadedmetadata', () => updateMediaProgressUI());
-                mediaAudioEl.addEventListener('error', () => { isTrackPlaying = false; updateMediaPlayerUI('Không tải được tệp nhạc này.'); });
+                mediaAudioEl.addEventListener('ended', () => {
+                    nextMediaTrack(false);
+                });
+                mediaAudioEl.addEventListener('play', () => {
+                    isTrackPlaying = true;
+                    updateMediaPlayerUI();
+                });
+                mediaAudioEl.addEventListener('pause', () => {
+                    isTrackPlaying = false;
+                    updateMediaPlayerUI();
+                });
+                mediaAudioEl.addEventListener('timeupdate', () => {
+                    updateMediaProgressUI();
+                });
+                mediaAudioEl.addEventListener('loadedmetadata', () => {
+                    updateMediaProgressUI();
+                });
+                mediaAudioEl.addEventListener('error', () => {
+                    isTrackPlaying = false;
+                    updateMediaPlayerUI('Không tải được tệp nhạc này.');
+                });
             }
             mediaAudioEl.volume = isMuted ? 0 : Math.max(0, Math.min(1, systemVolume));
             return mediaAudioEl;
@@ -1621,7 +2077,9 @@
         function formatAudioSeconds(sec) {
             if (!Number.isFinite(sec) || sec < 0) return '00:00';
             const total = Math.floor(sec);
-            return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+            const mins = Math.floor(total / 60);
+            const rem = total % 60;
+            return String(mins).padStart(2, '0') + ':' + String(rem).padStart(2, '0');
         }
 
         function seekMediaTrack(percentVal) {
@@ -1644,7 +2102,9 @@
                 return;
             }
             const pct = Math.max(0, Math.min(100, (audio.currentTime / audio.duration) * 100));
-            if (seekBar && document.activeElement !== seekBar) seekBar.value = pct.toFixed(1);
+            if (seekBar && document.activeElement !== seekBar) {
+                seekBar.value = pct.toFixed(1);
+            }
             if (curEl) curEl.textContent = formatAudioSeconds(audio.currentTime);
             if (durEl) durEl.textContent = formatAudioSeconds(audio.duration);
         }
@@ -1673,6 +2133,37 @@
             }
         }
 
+        function makeChessMove(fr, fc, tr, tc) {
+            saveChessSnapshot();
+            const captured = chessBoard[tr][tc];
+            chessBoard = cloneChessBoardWithMove(chessBoard, fr, fc, tr, tc);
+            chessSelected = null;
+            chessLegalTargets = [];
+            finalizeChessTurnAfterMove();
+            const nextInCheck = isChessKingInCheck(chessBoard, chessTurn);
+            playChessMoveSound(Boolean(captured), nextInCheck);
+            refreshChessWindowUI();
+
+            if (!chessGameOver && chessMode === 'bot' && chessTurn === 'w') {
+                chessBotTimer = setTimeout(() => {
+                    chessBotTimer = null;
+                    if (chessGameOver || chessMode !== 'bot' || chessTurn !== 'w') return;
+                    const botMove = chooseBotChessMove(chessBoard);
+                    if (!botMove) {
+                        finalizeChessTurnAfterMove();
+                        refreshChessWindowUI();
+                        return;
+                    }
+                    const botCaptured = chessBoard[botMove.tr][botMove.tc];
+                    chessBoard = cloneChessBoardWithMove(chessBoard, botMove.fr, botMove.fc, botMove.tr, botMove.tc);
+                    finalizeChessTurnAfterMove();
+                    const playerInCheck = isChessKingInCheck(chessBoard, chessTurn);
+                    playChessMoveSound(Boolean(botCaptured), playerInCheck);
+                    refreshChessWindowUI();
+                }, 360);
+            }
+        }
+
         function togglePlayPauseMedia() {
             const audio = getMediaAudioPlayer();
             const currentTrack = MEDIA_PLAYLIST[currentTrackIndex];
@@ -1682,15 +2173,28 @@
             }
             if (audio.paused) {
                 audio.volume = isMuted ? 0 : Math.max(0, Math.min(1, systemVolume));
-                audio.play().catch(() => updateMediaPlayerUI('Không thể phát nhạc lúc này.'));
+                audio.play().catch(() => {
+                    updateMediaPlayerUI('Không thể phát nhạc lúc này.');
+                });
             } else {
                 audio.pause();
             }
         }
 
-        function prevMediaTrack() { playSystemSound('click'); loadAndPlayTrack(currentTrackIndex - 1, true); }
-        function nextMediaTrack(playClick = true) { if (playClick) playSystemSound('click'); loadAndPlayTrack(currentTrackIndex + 1, true); }
-        function selectMediaTrack(index) { playSystemSound('click'); loadAndPlayTrack(index, true); }
+        function prevMediaTrack() {
+            playSystemSound('click');
+            loadAndPlayTrack(currentTrackIndex - 1, true);
+        }
+
+        function nextMediaTrack(playClick = true) {
+            if (playClick) playSystemSound('click');
+            loadAndPlayTrack(currentTrackIndex + 1, true);
+        }
+
+        function selectMediaTrack(index) {
+            playSystemSound('click');
+            loadAndPlayTrack(index, true);
+        }
 
         function updateMediaPlayerUI(customNote = '') {
             const track = MEDIA_PLAYLIST[currentTrackIndex];
@@ -1702,11 +2206,18 @@
 
             if (titleEl) titleEl.textContent = track.title;
             if (artistEl) artistEl.textContent = `${track.artist} • Bài ${currentTrackIndex + 1}/${MEDIA_PLAYLIST.length}`;
-            if (statusEl) statusEl.textContent = customNote || (isTrackPlaying ? 'Đang phát...' : 'Đã tạm dừng');
-            if (playIcon) playIcon.className = isTrackPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
-            if (playLabel) playLabel.textContent = isTrackPlaying ? 'Dừng' : 'Phát';
+            if (statusEl) {
+                statusEl.textContent = customNote || (isTrackPlaying ? 'Đang phát...' : 'Đã tạm dừng');
+            }
+            if (playIcon) {
+                playIcon.className = isTrackPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+            }
+            if (playLabel) {
+                playLabel.textContent = isTrackPlaying ? 'Dừng' : 'Phát';
+            }
 
-            document.querySelectorAll('[data-media-track-idx]').forEach((btn) => {
+            const listItems = document.querySelectorAll('[data-media-track-idx]');
+            listItems.forEach((btn) => {
                 const idx = Number(btn.getAttribute('data-media-track-idx'));
                 const active = idx === currentTrackIndex;
                 btn.className = active
@@ -1729,18 +2240,22 @@
                             <div id="media-status-note" class="text-[11px] text-slate-400 mt-0.5">${isTrackPlaying ? 'Đang phát...' : 'Đã tạm dừng'}</div>
                         </div>
                     </div>
+
                     <div class="flex items-center justify-center gap-2">
                         <button type="button" onclick="prevMediaTrack()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
-                            <i class="fa-solid fa-backward-step"></i><span>Quay lại</span>
+                            <i class="fa-solid fa-backward-step"></i>
+                            <span>Quay lại</span>
                         </button>
                         <button type="button" onclick="togglePlayPauseMedia()" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-xs font-bold flex items-center gap-1.5 shadow transition">
                             <i id="media-play-icon" class="fa-solid ${isTrackPlaying ? 'fa-pause' : 'fa-play'}"></i>
                             <span id="media-play-label">${isTrackPlaying ? 'Dừng' : 'Phát'}</span>
                         </button>
                         <button type="button" onclick="nextMediaTrack()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
-                            <span>Tiếp theo</span><i class="fa-solid fa-forward-step"></i>
+                            <span>Tiếp theo</span>
+                            <i class="fa-solid fa-forward-step"></i>
                         </button>
                     </div>
+
                     <div class="space-y-1">
                         <input id="media-seek-bar" type="range" min="0" max="100" value="0" step="0.1"
                             oninput="seekMediaTrack(this.value)"
@@ -1750,6 +2265,7 @@
                             <span id="media-duration-time">00:00</span>
                         </div>
                     </div>
+
                     <div class="space-y-1 max-h-24 overflow-y-auto custom-scroll pr-0.5">
                         ${MEDIA_PLAYLIST.map((item, idx) => `
                             <button type="button" data-media-track-idx="${idx}" onclick="selectMediaTrack(${idx})"
@@ -1768,6 +2284,7 @@
             updateMediaProgressUI();
         }
 
+        /* --- 6. Test Phím & Chuột + Soi Điểm Chết Màn Hình --- */
         let lastKeyPressed = 'Chưa nhấn phím nào';
         let mouseClickLog = 'Chưa click chuột trong vùng test';
         let wheelDeltaSum = 0;
@@ -1819,6 +2336,7 @@
             if (el) el.textContent = touchpadLog;
         }
 
+        /* --- Soi điểm chết màn hình --- */
         const SCREEN_TEST_COLORS = [
             { bg: '#ffffff', name: 'Trắng thuần (#FFFFFF)' },
             { bg: '#000000', name: 'Đen thuần (#000000)' },
@@ -1846,8 +2364,12 @@
 
         function nextScreenTestColor() {
             screenTestIdx += 1;
-            if (screenTestIdx >= SCREEN_TEST_COLORS.length) exitScreenPixelTest();
-            else { applyScreenTestColor(); playSystemSound('click'); }
+            if (screenTestIdx >= SCREEN_TEST_COLORS.length) {
+                exitScreenPixelTest();
+            } else {
+                applyScreenTestColor();
+                playSystemSound('click');
+            }
         }
 
         function exitScreenPixelTest() {
@@ -1855,8 +2377,12 @@
             if (overlay) overlay.classList.add('hidden');
         }
 
-        const MINE_ROWS = 8, MINE_COLS = 8, MINE_COUNT = 10;
-        let mineBoard = [], mineOver = false;
+        /* --- 7. Game Tuổi Thơ: Dò Mìn (Minesweeper) --- */
+        const MINE_ROWS = 8;
+        const MINE_COLS = 8;
+        const MINE_COUNT = 10;
+        let mineBoard = [];
+        let mineOver = false;
 
         function initMinesweeperBoard() {
             mineOver = false;
@@ -1867,7 +2393,10 @@
             while (placed < MINE_COUNT) {
                 const r = Math.floor(Math.random() * MINE_ROWS);
                 const c = Math.floor(Math.random() * MINE_COLS);
-                if (!mineBoard[r][c].mine) { mineBoard[r][c].mine = true; placed += 1; }
+                if (!mineBoard[r][c].mine) {
+                    mineBoard[r][c].mine = true;
+                    placed += 1;
+                }
             }
             for (let r = 0; r < MINE_ROWS; r++) {
                 for (let c = 0; c < MINE_COLS; c++) {
@@ -1875,8 +2404,11 @@
                     let cnt = 0;
                     for (let dr = -1; dr <= 1; dr++) {
                         for (let dc = -1; dc <= 1; dc++) {
-                            const nr = r + dr, nc = c + dc;
-                            if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS && mineBoard[nr][nc].mine) cnt += 1;
+                            const nr = r + dr;
+                            const nc = c + dc;
+                            if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS && mineBoard[nr][nc].mine) {
+                                cnt += 1;
+                            }
                         }
                     }
                     mineBoard[r][c].count = cnt;
@@ -1891,7 +2423,9 @@
                     <div class="w-full flex items-center justify-between text-xs">
                         <span class="font-semibold text-slate-700">Mìn: ${MINE_COUNT} • Chuột phải: Cắm cờ</span>
                         <button type="button" onclick="initMinesweeperBoard(); renderAppContent('minesweeper', this.closest('.window-body')); playSystemSound('click');"
-                            class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700">Chơi lại</button>
+                            class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700">
+                            Chơi lại
+                        </button>
                     </div>
                     <div id="mine-status" class="text-xs font-bold text-sky-700 min-h-[16px]"></div>
                     <div class="grid grid-cols-8 gap-1 bg-slate-300 p-1.5 rounded-xl">
@@ -1904,8 +2438,12 @@
                             } else if (cell.flagged) {
                                 content = '<i class="fa-solid fa-flag text-rose-600"></i>';
                             }
-                            return `<button type="button" onclick="revealMineCell(${r}, ${c})" oncontextmenu="flagMineCell(event, ${r}, ${c})"
-                                class="w-7 h-7 sm:w-8 sm:h-8 rounded flex items-center justify-center text-xs font-bold transition ${cls}">${content}</button>`;
+                            return `
+                                <button type="button" onclick="revealMineCell(${r}, ${c})" oncontextmenu="flagMineCell(event, ${r}, ${c})"
+                                    class="w-7 h-7 sm:w-8 sm:h-8 rounded flex items-center justify-center text-xs font-bold transition ${cls}">
+                                    ${content}
+                                </button>
+                            `;
                         }).join('')).join('')}
                     </div>
                 </div>
@@ -1937,13 +2475,19 @@
             if (cell.count === 0) {
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
-                        const nr = r + dr, nc = c + dc;
-                        if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS) revealMineCell(nr, nc);
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS) {
+                            revealMineCell(nr, nc);
+                        }
                     }
                 }
             }
             const winBody = document.querySelector('#win-minesweeper .window-body');
-            if (winBody) { renderMinesweeperApp(winBody); checkMinesweeperWin(); }
+            if (winBody) {
+                renderMinesweeperApp(winBody);
+                checkMinesweeperWin();
+            }
         }
 
         function flagMineCell(e, r, c) {
@@ -1972,6 +2516,7 @@
             }
         }
 
+        /* --- 8. Game Tuổi Thơ: Cờ Caro (9x9) --- */
         const CARO_SIZE = 9;
         let caroBoard = Array.from({ length: CARO_SIZE }, () => Array(CARO_SIZE).fill(''));
         let caroTurn = 'X';
@@ -1988,12 +2533,14 @@
             for (const [dr, dc] of dirs) {
                 let count = 1;
                 for (let step = 1; step < 5; step++) {
-                    const nr = r + dr * step, nc = c + dc * step;
+                    const nr = r + dr * step;
+                    const nc = c + dc * step;
                     if (nr >= 0 && nr < CARO_SIZE && nc >= 0 && nc < CARO_SIZE && caroBoard[nr][nc] === player) count += 1;
                     else break;
                 }
                 for (let step = 1; step < 5; step++) {
-                    const nr = r - dr * step, nc = c - dc * step;
+                    const nr = r - dr * step;
+                    const nc = c - dc * step;
                     if (nr >= 0 && nr < CARO_SIZE && nc >= 0 && nc < CARO_SIZE && caroBoard[nr][nc] === player) count += 1;
                     else break;
                 }
@@ -2006,16 +2553,22 @@
             container.innerHTML = `
                 <div class="flex flex-col items-center gap-2.5">
                     <div class="w-full flex items-center justify-between text-xs">
-                        <span class="font-bold text-slate-800">${caroWinner ? `Người thắng: ${caroWinner}` : `Lượt của: ${caroTurn}`}</span>
+                        <span class="font-bold text-slate-800">
+                            ${caroWinner ? `Người thắng: ${caroWinner}` : `Lượt của: ${caroTurn}`}
+                        </span>
                         <button type="button" onclick="resetCaroGame(); renderAppContent('caro', this.closest('.window-body')); playSystemSound('click');"
-                            class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Ván mới</button>
+                            class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">
+                            Ván mới
+                        </button>
                     </div>
                     <div class="grid grid-cols-9 gap-1 bg-slate-200 p-1.5 rounded-xl">
                         ${caroBoard.map((row, r) => row.map((val, c) => `
                             <button type="button" onclick="playCaroMove(${r}, ${c})"
                                 class="w-7 h-7 sm:w-8 sm:h-8 rounded bg-white hover:bg-sky-50 flex items-center justify-center text-sm font-extrabold ${
                                     val === 'X' ? 'text-rose-600' : 'text-sky-600'
-                                }">${val}</button>
+                                }">
+                                ${val}
+                            </button>
                         `).join('')).join('')}
                     </div>
                 </div>
@@ -2026,12 +2579,17 @@
             if (caroWinner || caroBoard[r][c]) return;
             caroBoard[r][c] = caroTurn;
             playSystemSound('click');
-            if (checkCaroWinner(r, c, caroTurn)) { caroWinner = caroTurn; playSystemSound('notify'); }
-            else { caroTurn = caroTurn === 'X' ? 'O' : 'X'; }
+            if (checkCaroWinner(r, c, caroTurn)) {
+                caroWinner = caroTurn;
+                playSystemSound('notify');
+            } else {
+                caroTurn = caroTurn === 'X' ? 'O' : 'X';
+            }
             const winBody = document.querySelector('#win-caro .window-body');
             if (winBody) renderCaroApp(winBody);
         }
 
+        /* --- 9. Vòng Quay May Mắn --- */
         let WHEEL_ITEMS = ['100 Xu', 'May Mắn', 'Thêm Lượt', 'Quà Bí Mật', 'Chúc Mừng', 'Vòng Mới'];
         const DEFAULT_WHEEL_ITEMS = ['100 Xu', 'May Mắn', 'Thêm Lượt', 'Quà Bí Mật', 'Chúc Mừng', 'Vòng Mới'];
         let wheelAngle = 0;
@@ -2042,23 +2600,32 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                     <div class="flex flex-col items-center gap-3">
                         <canvas id="lucky-wheel-canvas" width="220" height="220" class="max-w-full rounded-full shadow-lg"></canvas>
-                        <div id="wheel-result-text" class="text-xs sm:text-sm font-bold text-slate-800 min-h-[20px] text-center">Sẵn sàng quay thưởng!</div>
+                        <div id="wheel-result-text" class="text-xs sm:text-sm font-bold text-slate-800 min-h-[20px] text-center">
+                            Sẵn sàng quay thưởng!
+                        </div>
                         <button type="button" onclick="spinLuckyWheel()"
-                            class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-white text-xs sm:text-sm font-bold shadow hover:opacity-95">Quay Ngay</button>
+                            class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-white text-xs sm:text-sm font-bold shadow hover:opacity-95">
+                            Quay Ngay
+                        </button>
                     </div>
+
                     <div class="p-3 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
                         <div class="font-bold text-slate-800 flex items-center justify-between gap-2">
                             <span>Danh sách ô (mỗi dòng 1 ô)</span>
                             <div class="flex items-center gap-2">
                                 <button type="button" onclick="saveWheelItemsToVqmmFile()"
                                     class="px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center gap-1 transition">
-                                    <i class="fa-solid fa-floppy-disk"></i><span>Lưu (.vqmm)</span>
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    <span>Lưu (.vqmm)</span>
                                 </button>
                                 <label class="px-2 py-1 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition">
-                                    <i class="fa-solid fa-folder-open"></i><span>Mở file</span>
+                                    <i class="fa-solid fa-folder-open"></i>
+                                    <span>Mở file</span>
                                     <input type="file" accept=".vqmm,.txt,text/plain" onchange="openWheelItemsFromVqmmFile(this)" class="hidden">
                                 </label>
-                                <button type="button" onclick="resetWheelItems()" class="text-[11px] text-slate-500 hover:text-slate-800 hover:underline font-medium">Mặc định</button>
+                                <button type="button" onclick="resetWheelItems()" class="text-[11px] text-slate-500 hover:text-slate-800 hover:underline font-medium">
+                                    Mặc định
+                                </button>
                             </div>
                         </div>
                         <textarea id="wheel-items-textarea" rows="8"
@@ -2079,15 +2646,31 @@
             const el = document.getElementById('wheel-file-status');
             if (!el) return;
             el.textContent = msg || '';
-            el.className = isError ? 'text-rose-600 font-medium truncate' : 'text-emerald-600 font-medium truncate';
+            el.className = isError
+                ? 'text-rose-600 font-medium truncate'
+                : 'text-emerald-600 font-medium truncate';
         }
 
         function saveWheelItemsToVqmmFile() {
             try {
                 const ta = document.getElementById('wheel-items-textarea');
-                const rawLines = (ta ? ta.value : WHEEL_ITEMS.join('\n')).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                if (rawLines.length < 2) { setWheelFileStatus('Cần ít nhất 2 ô để lưu!', true); playSystemSound('error'); return; }
-                const payload = JSON.stringify({ app: 'LongTrueOS_LuckyWheel', version: 1, items: rawLines }, null, 2);
+                const rawLines = (ta ? ta.value : WHEEL_ITEMS.join('\n'))
+                    .split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(Boolean);
+
+                if (rawLines.length < 2) {
+                    setWheelFileStatus('Cần ít nhất 2 ô để lưu!', true);
+                    playSystemSound('error');
+                    return;
+                }
+
+                const payload = JSON.stringify({
+                    app: 'LongTrueOS_LuckyWheel',
+                    version: 1,
+                    items: rawLines
+                }, null, 2);
+
                 const blob = new Blob([payload], { type: 'application/octet-stream' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -2097,6 +2680,7 @@
                 link.click();
                 link.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
+
                 playSystemSound('notify');
                 setWheelFileStatus('Đã lưu vong-quay-may-man.vqmm');
             } catch (_) {
@@ -2109,16 +2693,32 @@
             if (!input || !input.files || !input.files[0]) return;
             const file = input.files[0];
             const reader = new FileReader();
+
             reader.onload = function (ev) {
                 try {
                     const text = String(ev.target.result || '').trim();
                     let parsedItems = [];
+
                     if (text.startsWith('{')) {
                         const data = JSON.parse(text);
-                        if (Array.isArray(data.items)) parsedItems = data.items.map(x => String(x || '').trim()).filter(Boolean);
+                        if (Array.isArray(data.items)) {
+                            parsedItems = data.items.map(x => String(x || '').trim()).filter(Boolean);
+                        }
                     }
-                    if (parsedItems.length < 2) parsedItems = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                    if (parsedItems.length < 2) { setWheelFileStatus('File .vqmm cần ít nhất 2 ô!', true); playSystemSound('error'); return; }
+
+                    if (parsedItems.length < 2) {
+                        parsedItems = text
+                            .split(/\r?\n/)
+                            .map(line => line.trim())
+                            .filter(Boolean);
+                    }
+
+                    if (parsedItems.length < 2) {
+                        setWheelFileStatus('File .vqmm cần ít nhất 2 ô!', true);
+                        playSystemSound('error');
+                        return;
+                    }
+
                     WHEEL_ITEMS = parsedItems;
                     const ta = document.getElementById('wheel-items-textarea');
                     if (ta) ta.value = WHEEL_ITEMS.join('\n');
@@ -2130,18 +2730,32 @@
                 } catch (_) {
                     setWheelFileStatus('File .vqmm không hợp lệ!', true);
                     playSystemSound('error');
-                } finally { input.value = ''; }
+                } finally {
+                    input.value = '';
+                }
             };
-            reader.onerror = function () { setWheelFileStatus('Lỗi đọc file!', true); playSystemSound('error'); input.value = ''; };
+
+            reader.onerror = function () {
+                setWheelFileStatus('Lỗi đọc file!', true);
+                playSystemSound('error');
+                input.value = '';
+            };
+
             reader.readAsText(file);
         }
 
         function syncWheelItemsFromTextarea(rawText) {
-            const lines = String(rawText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const lines = String(rawText || '')
+                .split(/\r?\n/)
+                .map(line => line.trim())
+                .filter(Boolean);
+
             if (lines.length >= 2) {
                 WHEEL_ITEMS = lines;
                 const resEl = document.getElementById('wheel-result-text');
-                if (resEl && !isSpinningWheel) resEl.textContent = 'Sẵn sàng quay thưởng!';
+                if (resEl && !isSpinningWheel) {
+                    resEl.textContent = 'Sẵn sàng quay thưởng!';
+                }
                 drawLuckyWheel();
             } else {
                 const resEl = document.getElementById('wheel-result-text');
@@ -2161,13 +2775,17 @@
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
-            const cx = canvas.width / 2, cy = canvas.height / 2, radius = Math.min(cx, cy) - 6;
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = Math.min(cx, cy) - 6;
             const colors = ['#0ea5e9', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
             const slice = (Math.PI * 2) / WHEEL_ITEMS.length;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             WHEEL_ITEMS.forEach((label, idx) => {
-                const start = wheelAngle + idx * slice, end = start + slice;
+                const start = wheelAngle + idx * slice;
+                const end = start + slice;
                 ctx.beginPath();
                 ctx.moveTo(cx, cy);
                 ctx.arc(cx, cy, radius, start, end);
@@ -2201,6 +2819,7 @@
             if (isSpinningWheel) return;
             isSpinningWheel = true;
             playSystemSound('click');
+
             const startAngle = wheelAngle;
             const extraSpins = (5 + Math.random() * 4) * Math.PI * 2;
             const targetAngle = startAngle + extraSpins;
@@ -2213,8 +2832,10 @@
                 const easeOut = 1 - Math.pow(1 - t, 3);
                 wheelAngle = startAngle + (targetAngle - startAngle) * easeOut;
                 drawLuckyWheel();
-                if (t < 1) requestAnimationFrame(step);
-                else {
+
+                if (t < 1) {
+                    requestAnimationFrame(step);
+                } else {
                     isSpinningWheel = false;
                     const slice = (Math.PI * 2) / WHEEL_ITEMS.length;
                     const pointerAngle = (Math.PI * 1.5 - (wheelAngle % (Math.PI * 2)) + Math.PI * 4) % (Math.PI * 2);
@@ -2227,6 +2848,9 @@
             requestAnimationFrame(step);
         }
 
+        /* =====================================================================
+           ĐỒNG HỒ THỜI GIAN THỰC, KHÓA PHÍM & SỰ KIỆN TOÀN HỆ THỐNG
+           ===================================================================== */
         function updateClockDisplay() {
             const now = new Date();
             const hh = String(now.getHours()).padStart(2, '0');
@@ -2262,8 +2886,11 @@
             const overlay = document.getElementById('screen-test-overlay');
             if (overlay && !overlay.classList.contains('hidden')) {
                 e.preventDefault();
-                if (e.key === 'Escape') exitScreenPixelTest();
-                else nextScreenTestColor();
+                if (e.key === 'Escape') {
+                    exitScreenPixelTest();
+                } else {
+                    nextScreenTestColor();
+                }
                 return;
             }
 
@@ -2291,42 +2918,56 @@
         });
 
         function initLongTrueOS() {
-            if (hasBootStarted) return;
-            hasBootStarted = true;
+            if (window.__longTrueOSInitialized) return;
+            window.__longTrueOSInitialized = true;
+
             try {
                 customWallpapers = loadCustomWallpapersFromStorage();
-                const lockWallEl = document.getElementById('lockscreen-wallpaper');
-                if (lockWallEl) {
-                    lockWallEl.style.backgroundImage = `url("${LOCKSCREEN_WALLPAPER_URL}")`;
-                }
                 const savedWall = loadSavedWallpaperState();
                 const wallEl = document.getElementById('desktop-wallpaper');
+                const lockWallEl = document.getElementById('lockscreen-wallpaper');
+                const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+
+                if (lockWallEl && LOCKSCREEN_WALLPAPER_URL) {
+                    lockWallEl.style.backgroundImage = `url("${LOCKSCREEN_WALLPAPER_URL}")`;
+                }
+
                 if (wallEl) {
                     if (savedWall && savedWall.url) {
                         wallEl.style.backgroundImage = `url("${savedWall.url}")`;
                         currentWallpaperName = savedWall.name;
-                    } else {
-                        const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+                    } else if (defaultWall && defaultWall.url) {
                         wallEl.style.backgroundImage = `url("${defaultWall.url}")`;
                         currentWallpaperName = defaultWall.name;
                     }
                 }
+            } catch (_) {}
+
+            try {
                 renderDesktopAndStartMenu();
                 updateClockDisplay();
                 updateVolumeUI();
-                setInterval(updateClockDisplay, 1000);
+            } catch (_) {}
+
+            if (!window.__longTrueOSClockTimer) {
+                window.__longTrueOSClockTimer = setInterval(() => {
+                    try { updateClockDisplay(); } catch (_) {}
+                }, 1000);
+            }
+
+            try {
                 startBootSequence(false);
-            } catch (err) {
+            } catch (_) {
                 forceEnterDesktopNow();
             }
         }
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initLongTrueOS);
+            document.addEventListener('DOMContentLoaded', initLongTrueOS, { once: true });
         } else {
             initLongTrueOS();
         }
-        window.addEventListener('load', initLongTrueOS);
+        window.addEventListener('load', initLongTrueOS, { once: true });
     </script>
 </body>
 </html>
