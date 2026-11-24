@@ -134,6 +134,11 @@
             <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
                 <div id="bios-progress-bar" class="h-full w-0 bg-gradient-to-r from-sky-400 via-cyan-300 to-emerald-400 transition-all duration-150"></div>
             </div>
+            <div class="mt-3 flex justify-end">
+                <button type="button" onclick="forceEnterDesktopNow()" class="px-2.5 py-1 rounded-md bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-[11px] font-bios text-sky-200 transition">
+                    Bỏ qua khởi động →
+                </button>
+            </div>
         </div>
     </section>
 
@@ -157,7 +162,9 @@
          3. ĐĂNG NHẬP ("Đang xoay..." -> "Welcome")
          ===================================================================== -->
     <section id="login-screen" class="os-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 flex flex-col items-center justify-center z-30 hidden">
-        <div class="flex flex-col items-center gap-4 text-center px-4">
+        <div id="lockscreen-wallpaper" class="absolute inset-0 bg-cover bg-center"></div>
+        <div class="absolute inset-0 bg-slate-950/45"></div>
+        <div class="relative z-10 flex flex-col items-center gap-4 text-center px-4">
             <div class="w-24 h-24 rounded-full bg-slate-800/90 border-2 border-sky-400/50 flex items-center justify-center text-3xl text-sky-300 shadow-xl">
                 <i class="fa-solid fa-user"></i>
             </div>
@@ -454,10 +461,25 @@
         let bootTimers = [];
         let isShutDownState = false;
         let currentPowerMode = 'shutdown';
+        let hasBootStarted = false;
 
         function clearBootTimers() {
             bootTimers.forEach(id => clearTimeout(id));
             bootTimers = [];
+        }
+
+        function forceEnterDesktopNow() {
+            clearBootTimers();
+            isShutDownState = false;
+            resetDesktopPowerState();
+            const wallEl = document.getElementById('desktop-wallpaper');
+            if (wallEl && !wallEl.style.backgroundImage) {
+                const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+                wallEl.style.backgroundImage = `url("${defaultWall.url}")`;
+                currentWallpaperName = defaultWall.name;
+            }
+            showScreen('desktop-screen');
+            triggerDesktopEnterAnimation();
         }
 
         function showScreen(screenId) {
@@ -480,9 +502,8 @@
             const taskbarIcons = document.getElementById('taskbar-apps-container');
             const taskbarRight = taskbar ? taskbar.lastElementChild : null;
 
-            // Ẩn tạm icon Desktop, icon Taskbar và taskbar trước để hiện hình nền trước
             if (iconsArea) {
-                iconsArea.classList.remove('opacity-0', 'pointer-events-none', 'desktop-enter-icons');
+                iconsArea.classList.remove('hidden', 'opacity-0', 'pointer-events-none', 'desktop-enter-icons');
                 iconsArea.style.opacity = '0';
             }
             if (taskbarIcons) {
@@ -494,31 +515,26 @@
                 taskbarRight.style.opacity = '0';
             }
             if (taskbar) {
+                taskbar.classList.remove('hidden', 'desktop-enter-taskbar');
                 taskbar.style.transition = '';
                 taskbar.style.transform = 'translateY(115%)';
                 taskbar.style.opacity = '0';
                 taskbar.style.pointerEvents = 'auto';
-                taskbar.classList.remove('desktop-enter-taskbar');
             }
 
-            // Sau khi hiện hình nền một nhịp ngắn, cho icon hiện ra và taskbar nhảy lên
             const t1 = setTimeout(() => {
                 if (iconsArea) {
                     iconsArea.style.opacity = '';
                     iconsArea.classList.add('desktop-enter-icons');
                 }
-                if (taskbarIcons) {
-                    taskbarIcons.style.opacity = '1';
-                }
-                if (taskbarRight) {
-                    taskbarRight.style.opacity = '1';
-                }
+                if (taskbarIcons) taskbarIcons.style.opacity = '1';
+                if (taskbarRight) taskbarRight.style.opacity = '1';
                 if (taskbar) {
                     taskbar.style.transform = '';
                     taskbar.style.opacity = '';
                     taskbar.classList.add('desktop-enter-taskbar');
                 }
-            }, 350);
+            }, 300);
             bootTimers.push(t1);
         }
 
@@ -528,7 +544,6 @@
             resetDesktopPowerState();
             closeAllWindows();
 
-            // Áp dụng hình nền mặc định "true" nếu chưa có
             const wallEl = document.getElementById('desktop-wallpaper');
             if (wallEl && !wallEl.style.backgroundImage) {
                 const savedWall = loadSavedWallpaperState();
@@ -536,8 +551,9 @@
                     wallEl.style.backgroundImage = `url("${savedWall.url}")`;
                     currentWallpaperName = savedWall.name || 'Hình nền tùy chỉnh';
                 } else {
-                    wallEl.style.backgroundImage = `url("${WALLPAPER_PRESETS[0].url}")`;
-                    currentWallpaperName = WALLPAPER_PRESETS[0].name;
+                    const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+                    wallEl.style.backgroundImage = `url("${defaultWall.url}")`;
+                    currentWallpaperName = defaultWall.name;
                 }
             }
 
@@ -554,28 +570,30 @@
             if (pct) pct.textContent = '0%';
             if (statusText) statusText.textContent = 'Initializing True BIOS hardware checks...';
 
-            // 2 giây ở True BIOS
+            const tBiosStart = setTimeout(() => {
+                if (bar) bar.style.width = '25%';
+                if (pct) pct.textContent = '25%';
+            }, 150);
+
             const tBiosMid = setTimeout(() => {
-                if (bar) bar.style.width = '65%';
-                if (pct) pct.textContent = '65%';
+                if (bar) bar.style.width = '68%';
+                if (pct) pct.textContent = '68%';
                 if (statusText) statusText.textContent = 'Loading LongTrueOS UEFI boot loader...';
-            }, 900);
+            }, 850);
 
             const tBiosEnd = setTimeout(() => {
                 if (bar) bar.style.width = '100%';
                 if (pct) pct.textContent = '100%';
-            }, 1850);
+            }, 1650);
 
-            // Chuyển sang Logo LongTrueOS + vòng xoay sau 2000ms
             const tLogo = setTimeout(() => {
                 showScreen('logo-screen');
-            }, 2000);
+            }, 1850);
 
-            // Mờ dần logo rồi chuyển sang màn hình đăng nhập ("Đang xoay...")
             const tFadeLogo = setTimeout(() => {
                 const logoEl = document.getElementById('logo-screen');
                 if (logoEl) logoEl.style.opacity = '0';
-            }, 3100);
+            }, 2850);
 
             const tLoginSpin = setTimeout(() => {
                 showScreen('login-screen');
@@ -586,24 +604,22 @@
                         <span id="login-status-text">Đang xoay...</span>
                     `;
                 }
-            }, 3550);
+            }, 3250);
 
-            // Chuyển sang "Welcome"
             const tWelcome = setTimeout(() => {
                 const statusRow = document.getElementById('login-status-row');
                 if (statusRow) {
                     statusRow.innerHTML = `<span class="text-xl sm:text-2xl font-bold tracking-wide text-white">Welcome</span>`;
                 }
-            }, 4750);
+            }, 4250);
 
-            // Vào Desktop mượt mà + phát âm thanh khởi động
             const tDesktop = setTimeout(() => {
                 showScreen('desktop-screen');
                 triggerDesktopEnterAnimation();
                 playSystemSound('startup');
-            }, 5800);
+            }, 5100);
 
-            bootTimers.push(tBiosMid, tBiosEnd, tLogo, tFadeLogo, tLoginSpin, tWelcome, tDesktop);
+            bootTimers.push(tBiosStart, tBiosMid, tBiosEnd, tLogo, tFadeLogo, tLoginSpin, tWelcome, tDesktop);
         }
 
         function resetDesktopPowerState() {
@@ -618,20 +634,16 @@
 
             if (iconsArea) {
                 iconsArea.style.opacity = '';
-                iconsArea.classList.remove('opacity-0', 'pointer-events-none', 'desktop-enter-icons');
+                iconsArea.classList.remove('hidden', 'opacity-0', 'pointer-events-none', 'desktop-enter-icons');
             }
-            if (taskbarIcons) {
-                taskbarIcons.style.opacity = '1';
-            }
-            if (taskbarRight) {
-                taskbarRight.style.opacity = '1';
-            }
+            if (taskbarIcons) taskbarIcons.style.opacity = '1';
+            if (taskbarRight) taskbarRight.style.opacity = '1';
             if (taskbar) {
                 taskbar.style.transition = '';
                 taskbar.style.transform = '';
                 taskbar.style.opacity = '';
                 taskbar.style.pointerEvents = '';
-                taskbar.classList.remove('desktop-enter-taskbar');
+                taskbar.classList.remove('hidden', 'desktop-enter-taskbar');
             }
             if (dimEl) dimEl.classList.add('hidden');
             if (popupEl) {
@@ -665,10 +677,8 @@
             if (startMenu) startMenu.classList.add('hidden');
 
             try {
-                // Đóng toàn bộ ứng dụng trước khi thực hiện thao tác nguồn
                 closeAllWindows();
 
-                // Ẩn icon Desktop & toàn bộ nội dung Taskbar trước
                 if (iconsArea) {
                     iconsArea.style.transition = 'opacity 0.25s ease';
                     iconsArea.style.opacity = '0';
@@ -689,17 +699,13 @@
                     taskbar.style.pointerEvents = 'none';
                 }
 
-                // Ẩn hẳn icon Desktop và Taskbar ngay sau khi hiệu ứng trượt/mờ hoàn tất để không lộ khi pop-up hiện
                 const tHideElements = setTimeout(() => {
                     if (iconsArea) iconsArea.classList.add('hidden');
                     if (taskbar) taskbar.classList.add('hidden');
                 }, 360);
                 bootTimers.push(tHideElements);
 
-                // Làm mờ nhẹ 10% lớp nền phía sau
-                if (dimEl) {
-                    dimEl.classList.remove('hidden');
-                }
+                if (dimEl) dimEl.classList.remove('hidden');
 
                 const tShowPopup = setTimeout(() => {
                     const titleEl = document.getElementById('power-popup-title');
@@ -711,7 +717,7 @@
                         playSystemSound('shutdown');
                     } else if (mode === 'reboot') {
                         if (titleEl) titleEl.textContent = 'Đang khởi động lại...';
-                        if (subEl) subEl.textContent = 'Đang làm mới trang web...';
+                        if (subEl) subEl.textContent = 'Đang làm mới hệ thống...';
                         playSystemSound('reboot');
                     } else {
                         if (titleEl) titleEl.textContent = 'Đang đăng xuất...';
@@ -720,8 +726,7 @@
                     }
 
                     if (popupEl) {
-                        popupEl.classList.remove('hidden');
-                        popupEl.classList.remove('power-popup-show');
+                        popupEl.classList.remove('hidden', 'power-popup-show');
                         void popupEl.offsetWidth;
                         popupEl.classList.add('power-popup-show');
                     }
@@ -739,11 +744,7 @@
                         isShutDownState = true;
                         showScreen('shutdown-screen');
                     } else if (mode === 'reboot') {
-                        try {
-                            window.location.reload();
-                        } catch (err) {
-                            window.location.href = window.location.href;
-                        }
+                        startBootSequence(true);
                     } else {
                         showScreen('login-screen');
                         const statusRow = document.getElementById('login-status-row');
@@ -770,11 +771,7 @@
                 }, 1550);
                 bootTimers.push(tFinish);
             } catch (err) {
-                if (mode === 'reboot') {
-                    window.location.reload();
-                } else {
-                    resetDesktopPowerState();
-                }
+                resetDesktopPowerState();
             }
         }
 
@@ -786,7 +783,7 @@
         }
 
         /* =====================================================================
-           DANH SÁCH ỨNG DỤNG & TRÒ CHƠI TRÊN LONGTRUEOS
+           DANH SÁCH ỨNG DỤNG & HÌNH NỀN TRÊN LONGTRUEOS
            ===================================================================== */
         const APPS_CONFIG = [
             { id: 'sysinfo', title: 'Kiểm Tra Hệ Thống', icon: 'fa-microchip', color: 'from-cyan-500 to-blue-600', width: 560, height: 440, pinnedTaskbar: true },
@@ -803,6 +800,34 @@
             {
                 name: 'true',
                 url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/6795eda8ecd648ffad11fc52ada415a6.jpg'
+            },
+            {
+                name: 'True & Bartleby Beach',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/True%20and%20the%20Rainbow%20Kingdom%20True%20x%20Bartleby%20in%20the%20beach.png'
+            },
+            {
+                name: 'True on the Beach',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/True%20and%20the%20Rainbow%20Kingdom%20True%20on%20the%20beach.png'
+            },
+            {
+                name: 'True x Zee Beach Sunglasses',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/True%20and%20the%20Rainbow%20kingdom%20True%20x%20Zee%20Beach%20Sunglasses.png'
+            },
+            {
+                name: 'True Rainbow Screenshot 41',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(41).png'
+            },
+            {
+                name: 'True Rainbow Screenshot 37',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(37).png'
+            },
+            {
+                name: 'True Rainbow Screenshot 34',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot%20(34).png'
+            },
+            {
+                name: 'True Rainbow 20261123',
+                url: 'https://ia601502.us.archive.org/0/items/truerainbowwallpaper/Screenshot_20261123_130654.png'
             },
             {
                 name: 'True Rainbow 2',
@@ -841,16 +866,14 @@
                 url: 'https://dn710903.ca.archive.org/0/items/truerainbowwallpaper/true-1.jpg'
             },
             {
-                name: 'True Rainbow 11',
-                url: 'https://dn710903.ca.archive.org/0/items/truerainbowwallpaper/d58f0986c571452f1c60.jpg'
-            },
-            {
                 name: 'True Rainbow 12',
                 url: 'https://dn710903.ca.archive.org/0/items/truerainbowwallpaper/true_swimsuit_20_by_ndx97_dimrh5u-fullview.jpg'
             }
         ];
 
-        let currentWallpaperName = 'true';
+        const BROKEN_WALLPAPER_URL = 'https://dn710903.ca.archive.org/0/items/truerainbowwallpaper/d58f0986c571452f1c60.jpg';
+        const LOCKSCREEN_WALLPAPER_URL = WALLPAPER_PRESETS[4].url;
+        let currentWallpaperName = 'True Rainbow Screenshot 34';
         let customWallpapers = [];
         const WALLPAPER_STORAGE_KEY = 'longtrueos_saved_wallpaper_v1';
         const CUSTOM_WALLPAPERS_STORAGE_KEY = 'longtrueos_custom_wallpapers_v1';
@@ -861,6 +884,10 @@
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
                 if (parsed && typeof parsed.url === 'string' && parsed.url.trim()) {
+                    if (parsed.url.trim() === BROKEN_WALLPAPER_URL || parsed.name === 'True Rainbow 11') {
+                        localStorage.removeItem(WALLPAPER_STORAGE_KEY);
+                        return null;
+                    }
                     return {
                         url: parsed.url,
                         name: parsed.name || 'Hình nền tùy chỉnh'
@@ -876,7 +903,7 @@
                 if (!raw) return [];
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed)) {
-                    return parsed.filter(item => item && typeof item.url === 'string' && item.url.trim());
+                    return parsed.filter(item => item && typeof item.url === 'string' && item.url.trim() && item.url.trim() !== BROKEN_WALLPAPER_URL);
                 }
             } catch (_) {}
             return [];
@@ -951,7 +978,8 @@
             );
 
             if (isCurrentlyUsingRemoved) {
-                setDesktopWallpaper(WALLPAPER_PRESETS[0].url, WALLPAPER_PRESETS[0].name);
+                const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+                setDesktopWallpaper(defaultWall.url, defaultWall.name);
             } else {
                 const activeWin = document.getElementById('win-settings');
                 if (activeWin) {
@@ -1319,7 +1347,6 @@
             }
         }
 
-        /* --- 1. Kiểm Tra Hệ Thống --- */
         function renderSystemInfoApp(container) {
             let gpuRenderer = 'Không thể truy xuất WebGL';
             try {
@@ -1377,7 +1404,6 @@
             `;
         }
 
-        /* --- 2. Máy Tính --- */
         let calcExpr = '';
         function renderCalculatorApp(container) {
             const buttons = [
@@ -1431,12 +1457,13 @@
             if (disp) disp.textContent = calcExpr || '0';
         }
 
-        /* --- 3. Cài Đặt (Cá Nhân Hóa & System) --- */
         let currentSettingsTab = 'personalization';
 
         function renderSettingsApp(container) {
             const allWallpapers = [...WALLPAPER_PRESETS, ...customWallpapers];
-            const safeCurrentName = String(currentWallpaperName || 'true')
+            const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+            const defaultWallIndex = Math.max(0, WALLPAPER_PRESETS.findIndex(w => w.name === 'True Rainbow Screenshot 34'));
+            const safeCurrentName = String(currentWallpaperName || defaultWall.name)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;');
@@ -1447,6 +1474,7 @@
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;');
+                const isActive = currentWallpaperName === wp.name;
                 const isCustom = idx >= WALLPAPER_PRESETS.length;
                 const customIdx = idx - WALLPAPER_PRESETS.length;
                 const deleteBtnHtml = isCustom
@@ -1457,12 +1485,12 @@
                     : '';
                 return (
                     '<div onclick="selectWallpaperByIndex(' + idx + ')" role="button" tabindex="0" ' +
-                    'class="relative group rounded-xl overflow-hidden border border-slate-200 hover:border-sky-500 text-left bg-slate-50 cursor-pointer transition">' +
+                    'class="relative group rounded-xl overflow-hidden border ' + (isActive ? 'border-sky-500 ring-2 ring-sky-400/50' : 'border-slate-200 hover:border-sky-500') + ' text-left bg-slate-50 cursor-pointer transition">' +
                     deleteBtnHtml +
                     '<div class="h-24 w-full bg-cover bg-center" style="background-image: url(&quot;' + safeUrl + '&quot;)"></div>' +
-                    '<div class="px-2.5 py-1.5 font-semibold text-slate-700 truncate flex items-center justify-between">' +
+                    '<div class="px-2.5 py-1.5 font-semibold text-slate-700 truncate flex items-center justify-between gap-1">' +
                     '<span class="truncate">' + displayName + '</span>' +
-                    '<span class="text-[10px] text-sky-600">#' + (idx + 1) + '</span>' +
+                    '<span class="text-[10px] ' + (isActive ? 'text-sky-600 font-bold' : 'text-slate-400') + '">' + (isActive ? 'Đang dùng' : '#' + (idx + 1)) + '</span>' +
                     '</div>' +
                     '</div>'
                 );
@@ -1475,9 +1503,9 @@
                 '<div class="font-bold text-sm text-slate-900">Hình Nền Desktop</div>' +
                 '<div class="text-slate-500">Hiện tại: <span class="font-semibold text-slate-700">' + safeCurrentName + '</span></div>' +
                 '</div>' +
-                '<button type="button" onclick="selectWallpaperByIndex(0)" ' +
+                '<button type="button" onclick="selectWallpaperByIndex(' + defaultWallIndex + ')" ' +
                 'class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold">' +
-                'Khôi phục mặc định (' + WALLPAPER_PRESETS[0].name + ')' +
+                'Khôi phục mặc định (' + defaultWall.name + ')' +
                 '</button>' +
                 '</div>' +
                 '<div class="grid grid-cols-2 gap-2.5">' +
@@ -1533,7 +1561,6 @@
                 '</div>';
         }
 
-        /* --- 4. Media Player --- */
         const MEDIA_PLAYLIST = [
             {
                 title: 'Gia Đình Nhỏ Hạnh Phúc To (Nhạc Thiếu Nhi)',
@@ -1580,27 +1607,12 @@
             if (!mediaAudioEl) {
                 mediaAudioEl = new Audio();
                 mediaAudioEl.preload = 'metadata';
-                mediaAudioEl.addEventListener('ended', () => {
-                    nextMediaTrack(false);
-                });
-                mediaAudioEl.addEventListener('play', () => {
-                    isTrackPlaying = true;
-                    updateMediaPlayerUI();
-                });
-                mediaAudioEl.addEventListener('pause', () => {
-                    isTrackPlaying = false;
-                    updateMediaPlayerUI();
-                });
-                mediaAudioEl.addEventListener('timeupdate', () => {
-                    updateMediaProgressUI();
-                });
-                mediaAudioEl.addEventListener('loadedmetadata', () => {
-                    updateMediaProgressUI();
-                });
-                mediaAudioEl.addEventListener('error', () => {
-                    isTrackPlaying = false;
-                    updateMediaPlayerUI('Không tải được tệp nhạc này.');
-                });
+                mediaAudioEl.addEventListener('ended', () => nextMediaTrack(false));
+                mediaAudioEl.addEventListener('play', () => { isTrackPlaying = true; updateMediaPlayerUI(); });
+                mediaAudioEl.addEventListener('pause', () => { isTrackPlaying = false; updateMediaPlayerUI(); });
+                mediaAudioEl.addEventListener('timeupdate', () => updateMediaProgressUI());
+                mediaAudioEl.addEventListener('loadedmetadata', () => updateMediaProgressUI());
+                mediaAudioEl.addEventListener('error', () => { isTrackPlaying = false; updateMediaPlayerUI('Không tải được tệp nhạc này.'); });
             }
             mediaAudioEl.volume = isMuted ? 0 : Math.max(0, Math.min(1, systemVolume));
             return mediaAudioEl;
@@ -1609,9 +1621,7 @@
         function formatAudioSeconds(sec) {
             if (!Number.isFinite(sec) || sec < 0) return '00:00';
             const total = Math.floor(sec);
-            const mins = Math.floor(total / 60);
-            const rem = total % 60;
-            return String(mins).padStart(2, '0') + ':' + String(rem).padStart(2, '0');
+            return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
         }
 
         function seekMediaTrack(percentVal) {
@@ -1634,9 +1644,7 @@
                 return;
             }
             const pct = Math.max(0, Math.min(100, (audio.currentTime / audio.duration) * 100));
-            if (seekBar && document.activeElement !== seekBar) {
-                seekBar.value = pct.toFixed(1);
-            }
+            if (seekBar && document.activeElement !== seekBar) seekBar.value = pct.toFixed(1);
             if (curEl) curEl.textContent = formatAudioSeconds(audio.currentTime);
             if (durEl) durEl.textContent = formatAudioSeconds(audio.duration);
         }
@@ -1674,28 +1682,15 @@
             }
             if (audio.paused) {
                 audio.volume = isMuted ? 0 : Math.max(0, Math.min(1, systemVolume));
-                audio.play().catch(() => {
-                    updateMediaPlayerUI('Không thể phát nhạc lúc này.');
-                });
+                audio.play().catch(() => updateMediaPlayerUI('Không thể phát nhạc lúc này.'));
             } else {
                 audio.pause();
             }
         }
 
-        function prevMediaTrack() {
-            playSystemSound('click');
-            loadAndPlayTrack(currentTrackIndex - 1, true);
-        }
-
-        function nextMediaTrack(playClick = true) {
-            if (playClick) playSystemSound('click');
-            loadAndPlayTrack(currentTrackIndex + 1, true);
-        }
-
-        function selectMediaTrack(index) {
-            playSystemSound('click');
-            loadAndPlayTrack(index, true);
-        }
+        function prevMediaTrack() { playSystemSound('click'); loadAndPlayTrack(currentTrackIndex - 1, true); }
+        function nextMediaTrack(playClick = true) { if (playClick) playSystemSound('click'); loadAndPlayTrack(currentTrackIndex + 1, true); }
+        function selectMediaTrack(index) { playSystemSound('click'); loadAndPlayTrack(index, true); }
 
         function updateMediaPlayerUI(customNote = '') {
             const track = MEDIA_PLAYLIST[currentTrackIndex];
@@ -1707,18 +1702,11 @@
 
             if (titleEl) titleEl.textContent = track.title;
             if (artistEl) artistEl.textContent = `${track.artist} • Bài ${currentTrackIndex + 1}/${MEDIA_PLAYLIST.length}`;
-            if (statusEl) {
-                statusEl.textContent = customNote || (isTrackPlaying ? 'Đang phát...' : 'Đã tạm dừng');
-            }
-            if (playIcon) {
-                playIcon.className = isTrackPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
-            }
-            if (playLabel) {
-                playLabel.textContent = isTrackPlaying ? 'Dừng' : 'Phát';
-            }
+            if (statusEl) statusEl.textContent = customNote || (isTrackPlaying ? 'Đang phát...' : 'Đã tạm dừng');
+            if (playIcon) playIcon.className = isTrackPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+            if (playLabel) playLabel.textContent = isTrackPlaying ? 'Dừng' : 'Phát';
 
-            const listItems = document.querySelectorAll('[data-media-track-idx]');
-            listItems.forEach((btn) => {
+            document.querySelectorAll('[data-media-track-idx]').forEach((btn) => {
                 const idx = Number(btn.getAttribute('data-media-track-idx'));
                 const active = idx === currentTrackIndex;
                 btn.className = active
@@ -1741,23 +1729,18 @@
                             <div id="media-status-note" class="text-[11px] text-slate-400 mt-0.5">${isTrackPlaying ? 'Đang phát...' : 'Đã tạm dừng'}</div>
                         </div>
                     </div>
-
                     <div class="flex items-center justify-center gap-2">
                         <button type="button" onclick="prevMediaTrack()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
-                            <i class="fa-solid fa-backward-step"></i>
-                            <span>Quay lại</span>
+                            <i class="fa-solid fa-backward-step"></i><span>Quay lại</span>
                         </button>
                         <button type="button" onclick="togglePlayPauseMedia()" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-xs font-bold flex items-center gap-1.5 shadow transition">
                             <i id="media-play-icon" class="fa-solid ${isTrackPlaying ? 'fa-pause' : 'fa-play'}"></i>
                             <span id="media-play-label">${isTrackPlaying ? 'Dừng' : 'Phát'}</span>
                         </button>
                         <button type="button" onclick="nextMediaTrack()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
-                            <span>Tiếp theo</span>
-                            <i class="fa-solid fa-forward-step"></i>
+                            <span>Tiếp theo</span><i class="fa-solid fa-forward-step"></i>
                         </button>
                     </div>
-
-                    <!-- Thanh chạy tiến trình bài hát -->
                     <div class="space-y-1">
                         <input id="media-seek-bar" type="range" min="0" max="100" value="0" step="0.1"
                             oninput="seekMediaTrack(this.value)"
@@ -1767,7 +1750,6 @@
                             <span id="media-duration-time">00:00</span>
                         </div>
                     </div>
-
                     <div class="space-y-1 max-h-24 overflow-y-auto custom-scroll pr-0.5">
                         ${MEDIA_PLAYLIST.map((item, idx) => `
                             <button type="button" data-media-track-idx="${idx}" onclick="selectMediaTrack(${idx})"
@@ -1786,7 +1768,6 @@
             updateMediaProgressUI();
         }
 
-        /* --- 5. Test Phím & Chuột + Soi Điểm Chết Màn Hình --- */
         let lastKeyPressed = 'Chưa nhấn phím nào';
         let mouseClickLog = 'Chưa click chuột trong vùng test';
         let wheelDeltaSum = 0;
@@ -1838,7 +1819,6 @@
             if (el) el.textContent = touchpadLog;
         }
 
-        /* --- Soi điểm chết màn hình --- */
         const SCREEN_TEST_COLORS = [
             { bg: '#ffffff', name: 'Trắng thuần (#FFFFFF)' },
             { bg: '#000000', name: 'Đen thuần (#000000)' },
@@ -1866,12 +1846,8 @@
 
         function nextScreenTestColor() {
             screenTestIdx += 1;
-            if (screenTestIdx >= SCREEN_TEST_COLORS.length) {
-                exitScreenPixelTest();
-            } else {
-                applyScreenTestColor();
-                playSystemSound('click');
-            }
+            if (screenTestIdx >= SCREEN_TEST_COLORS.length) exitScreenPixelTest();
+            else { applyScreenTestColor(); playSystemSound('click'); }
         }
 
         function exitScreenPixelTest() {
@@ -1879,12 +1855,8 @@
             if (overlay) overlay.classList.add('hidden');
         }
 
-        /* --- 6. Game Tuổi Thơ: Dò Mìn (Minesweeper) --- */
-        const MINE_ROWS = 8;
-        const MINE_COLS = 8;
-        const MINE_COUNT = 10;
-        let mineBoard = [];
-        let mineOver = false;
+        const MINE_ROWS = 8, MINE_COLS = 8, MINE_COUNT = 10;
+        let mineBoard = [], mineOver = false;
 
         function initMinesweeperBoard() {
             mineOver = false;
@@ -1895,10 +1867,7 @@
             while (placed < MINE_COUNT) {
                 const r = Math.floor(Math.random() * MINE_ROWS);
                 const c = Math.floor(Math.random() * MINE_COLS);
-                if (!mineBoard[r][c].mine) {
-                    mineBoard[r][c].mine = true;
-                    placed += 1;
-                }
+                if (!mineBoard[r][c].mine) { mineBoard[r][c].mine = true; placed += 1; }
             }
             for (let r = 0; r < MINE_ROWS; r++) {
                 for (let c = 0; c < MINE_COLS; c++) {
@@ -1906,11 +1875,8 @@
                     let cnt = 0;
                     for (let dr = -1; dr <= 1; dr++) {
                         for (let dc = -1; dc <= 1; dc++) {
-                            const nr = r + dr;
-                            const nc = c + dc;
-                            if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS && mineBoard[nr][nc].mine) {
-                                cnt += 1;
-                            }
+                            const nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS && mineBoard[nr][nc].mine) cnt += 1;
                         }
                     }
                     mineBoard[r][c].count = cnt;
@@ -1925,9 +1891,7 @@
                     <div class="w-full flex items-center justify-between text-xs">
                         <span class="font-semibold text-slate-700">Mìn: ${MINE_COUNT} • Chuột phải: Cắm cờ</span>
                         <button type="button" onclick="initMinesweeperBoard(); renderAppContent('minesweeper', this.closest('.window-body')); playSystemSound('click');"
-                            class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700">
-                            Chơi lại
-                        </button>
+                            class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700">Chơi lại</button>
                     </div>
                     <div id="mine-status" class="text-xs font-bold text-sky-700 min-h-[16px]"></div>
                     <div class="grid grid-cols-8 gap-1 bg-slate-300 p-1.5 rounded-xl">
@@ -1940,12 +1904,8 @@
                             } else if (cell.flagged) {
                                 content = '<i class="fa-solid fa-flag text-rose-600"></i>';
                             }
-                            return `
-                                <button type="button" onclick="revealMineCell(${r}, ${c})" oncontextmenu="flagMineCell(event, ${r}, ${c})"
-                                    class="w-7 h-7 sm:w-8 sm:h-8 rounded flex items-center justify-center text-xs font-bold transition ${cls}">
-                                    ${content}
-                                </button>
-                            `;
+                            return `<button type="button" onclick="revealMineCell(${r}, ${c})" oncontextmenu="flagMineCell(event, ${r}, ${c})"
+                                class="w-7 h-7 sm:w-8 sm:h-8 rounded flex items-center justify-center text-xs font-bold transition ${cls}">${content}</button>`;
                         }).join('')).join('')}
                     </div>
                 </div>
@@ -1977,19 +1937,13 @@
             if (cell.count === 0) {
                 for (let dr = -1; dr <= 1; dr++) {
                     for (let dc = -1; dc <= 1; dc++) {
-                        const nr = r + dr;
-                        const nc = c + dc;
-                        if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS) {
-                            revealMineCell(nr, nc);
-                        }
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < MINE_ROWS && nc >= 0 && nc < MINE_COLS) revealMineCell(nr, nc);
                     }
                 }
             }
             const winBody = document.querySelector('#win-minesweeper .window-body');
-            if (winBody) {
-                renderMinesweeperApp(winBody);
-                checkMinesweeperWin();
-            }
+            if (winBody) { renderMinesweeperApp(winBody); checkMinesweeperWin(); }
         }
 
         function flagMineCell(e, r, c) {
@@ -2018,7 +1972,6 @@
             }
         }
 
-        /* --- 7. Game Tuổi Thơ: Cờ Caro (9x9) --- */
         const CARO_SIZE = 9;
         let caroBoard = Array.from({ length: CARO_SIZE }, () => Array(CARO_SIZE).fill(''));
         let caroTurn = 'X';
@@ -2035,14 +1988,12 @@
             for (const [dr, dc] of dirs) {
                 let count = 1;
                 for (let step = 1; step < 5; step++) {
-                    const nr = r + dr * step;
-                    const nc = c + dc * step;
+                    const nr = r + dr * step, nc = c + dc * step;
                     if (nr >= 0 && nr < CARO_SIZE && nc >= 0 && nc < CARO_SIZE && caroBoard[nr][nc] === player) count += 1;
                     else break;
                 }
                 for (let step = 1; step < 5; step++) {
-                    const nr = r - dr * step;
-                    const nc = c - dc * step;
+                    const nr = r - dr * step, nc = c - dc * step;
                     if (nr >= 0 && nr < CARO_SIZE && nc >= 0 && nc < CARO_SIZE && caroBoard[nr][nc] === player) count += 1;
                     else break;
                 }
@@ -2055,22 +2006,16 @@
             container.innerHTML = `
                 <div class="flex flex-col items-center gap-2.5">
                     <div class="w-full flex items-center justify-between text-xs">
-                        <span class="font-bold text-slate-800">
-                            ${caroWinner ? `Người thắng: ${caroWinner}` : `Lượt của: ${caroTurn}`}
-                        </span>
+                        <span class="font-bold text-slate-800">${caroWinner ? `Người thắng: ${caroWinner}` : `Lượt của: ${caroTurn}`}</span>
                         <button type="button" onclick="resetCaroGame(); renderAppContent('caro', this.closest('.window-body')); playSystemSound('click');"
-                            class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">
-                            Ván mới
-                        </button>
+                            class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Ván mới</button>
                     </div>
                     <div class="grid grid-cols-9 gap-1 bg-slate-200 p-1.5 rounded-xl">
                         ${caroBoard.map((row, r) => row.map((val, c) => `
                             <button type="button" onclick="playCaroMove(${r}, ${c})"
                                 class="w-7 h-7 sm:w-8 sm:h-8 rounded bg-white hover:bg-sky-50 flex items-center justify-center text-sm font-extrabold ${
                                     val === 'X' ? 'text-rose-600' : 'text-sky-600'
-                                }">
-                                ${val}
-                            </button>
+                                }">${val}</button>
                         `).join('')).join('')}
                     </div>
                 </div>
@@ -2081,17 +2026,12 @@
             if (caroWinner || caroBoard[r][c]) return;
             caroBoard[r][c] = caroTurn;
             playSystemSound('click');
-            if (checkCaroWinner(r, c, caroTurn)) {
-                caroWinner = caroTurn;
-                playSystemSound('notify');
-            } else {
-                caroTurn = caroTurn === 'X' ? 'O' : 'X';
-            }
+            if (checkCaroWinner(r, c, caroTurn)) { caroWinner = caroTurn; playSystemSound('notify'); }
+            else { caroTurn = caroTurn === 'X' ? 'O' : 'X'; }
             const winBody = document.querySelector('#win-caro .window-body');
             if (winBody) renderCaroApp(winBody);
         }
 
-        /* --- 8. Vòng Quay May Mắn --- */
         let WHEEL_ITEMS = ['100 Xu', 'May Mắn', 'Thêm Lượt', 'Quà Bí Mật', 'Chúc Mừng', 'Vòng Mới'];
         const DEFAULT_WHEEL_ITEMS = ['100 Xu', 'May Mắn', 'Thêm Lượt', 'Quà Bí Mật', 'Chúc Mừng', 'Vòng Mới'];
         let wheelAngle = 0;
@@ -2102,32 +2042,23 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                     <div class="flex flex-col items-center gap-3">
                         <canvas id="lucky-wheel-canvas" width="220" height="220" class="max-w-full rounded-full shadow-lg"></canvas>
-                        <div id="wheel-result-text" class="text-xs sm:text-sm font-bold text-slate-800 min-h-[20px] text-center">
-                            Sẵn sàng quay thưởng!
-                        </div>
+                        <div id="wheel-result-text" class="text-xs sm:text-sm font-bold text-slate-800 min-h-[20px] text-center">Sẵn sàng quay thưởng!</div>
                         <button type="button" onclick="spinLuckyWheel()"
-                            class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-white text-xs sm:text-sm font-bold shadow hover:opacity-95">
-                            Quay Ngay
-                        </button>
+                            class="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-white text-xs sm:text-sm font-bold shadow hover:opacity-95">Quay Ngay</button>
                     </div>
-
                     <div class="p-3 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
                         <div class="font-bold text-slate-800 flex items-center justify-between gap-2">
                             <span>Danh sách ô (mỗi dòng 1 ô)</span>
                             <div class="flex items-center gap-2">
                                 <button type="button" onclick="saveWheelItemsToVqmmFile()"
                                     class="px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center gap-1 transition">
-                                    <i class="fa-solid fa-floppy-disk"></i>
-                                    <span>Lưu (.vqmm)</span>
+                                    <i class="fa-solid fa-floppy-disk"></i><span>Lưu (.vqmm)</span>
                                 </button>
                                 <label class="px-2 py-1 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition">
-                                    <i class="fa-solid fa-folder-open"></i>
-                                    <span>Mở file</span>
+                                    <i class="fa-solid fa-folder-open"></i><span>Mở file</span>
                                     <input type="file" accept=".vqmm,.txt,text/plain" onchange="openWheelItemsFromVqmmFile(this)" class="hidden">
                                 </label>
-                                <button type="button" onclick="resetWheelItems()" class="text-[11px] text-slate-500 hover:text-slate-800 hover:underline font-medium">
-                                    Mặc định
-                                </button>
+                                <button type="button" onclick="resetWheelItems()" class="text-[11px] text-slate-500 hover:text-slate-800 hover:underline font-medium">Mặc định</button>
                             </div>
                         </div>
                         <textarea id="wheel-items-textarea" rows="8"
@@ -2148,31 +2079,15 @@
             const el = document.getElementById('wheel-file-status');
             if (!el) return;
             el.textContent = msg || '';
-            el.className = isError
-                ? 'text-rose-600 font-medium truncate'
-                : 'text-emerald-600 font-medium truncate';
+            el.className = isError ? 'text-rose-600 font-medium truncate' : 'text-emerald-600 font-medium truncate';
         }
 
         function saveWheelItemsToVqmmFile() {
             try {
                 const ta = document.getElementById('wheel-items-textarea');
-                const rawLines = (ta ? ta.value : WHEEL_ITEMS.join('\n'))
-                    .split(/\r?\n/)
-                    .map(line => line.trim())
-                    .filter(Boolean);
-
-                if (rawLines.length < 2) {
-                    setWheelFileStatus('Cần ít nhất 2 ô để lưu!', true);
-                    playSystemSound('error');
-                    return;
-                }
-
-                const payload = JSON.stringify({
-                    app: 'LongTrueOS_LuckyWheel',
-                    version: 1,
-                    items: rawLines
-                }, null, 2);
-
+                const rawLines = (ta ? ta.value : WHEEL_ITEMS.join('\n')).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                if (rawLines.length < 2) { setWheelFileStatus('Cần ít nhất 2 ô để lưu!', true); playSystemSound('error'); return; }
+                const payload = JSON.stringify({ app: 'LongTrueOS_LuckyWheel', version: 1, items: rawLines }, null, 2);
                 const blob = new Blob([payload], { type: 'application/octet-stream' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -2182,7 +2097,6 @@
                 link.click();
                 link.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
-
                 playSystemSound('notify');
                 setWheelFileStatus('Đã lưu vong-quay-may-man.vqmm');
             } catch (_) {
@@ -2195,32 +2109,16 @@
             if (!input || !input.files || !input.files[0]) return;
             const file = input.files[0];
             const reader = new FileReader();
-
             reader.onload = function (ev) {
                 try {
                     const text = String(ev.target.result || '').trim();
                     let parsedItems = [];
-
                     if (text.startsWith('{')) {
                         const data = JSON.parse(text);
-                        if (Array.isArray(data.items)) {
-                            parsedItems = data.items.map(x => String(x || '').trim()).filter(Boolean);
-                        }
+                        if (Array.isArray(data.items)) parsedItems = data.items.map(x => String(x || '').trim()).filter(Boolean);
                     }
-
-                    if (parsedItems.length < 2) {
-                        parsedItems = text
-                            .split(/\r?\n/)
-                            .map(line => line.trim())
-                            .filter(Boolean);
-                    }
-
-                    if (parsedItems.length < 2) {
-                        setWheelFileStatus('File .vqmm cần ít nhất 2 ô!', true);
-                        playSystemSound('error');
-                        return;
-                    }
-
+                    if (parsedItems.length < 2) parsedItems = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                    if (parsedItems.length < 2) { setWheelFileStatus('File .vqmm cần ít nhất 2 ô!', true); playSystemSound('error'); return; }
                     WHEEL_ITEMS = parsedItems;
                     const ta = document.getElementById('wheel-items-textarea');
                     if (ta) ta.value = WHEEL_ITEMS.join('\n');
@@ -2232,32 +2130,18 @@
                 } catch (_) {
                     setWheelFileStatus('File .vqmm không hợp lệ!', true);
                     playSystemSound('error');
-                } finally {
-                    input.value = '';
-                }
+                } finally { input.value = ''; }
             };
-
-            reader.onerror = function () {
-                setWheelFileStatus('Lỗi đọc file!', true);
-                playSystemSound('error');
-                input.value = '';
-            };
-
+            reader.onerror = function () { setWheelFileStatus('Lỗi đọc file!', true); playSystemSound('error'); input.value = ''; };
             reader.readAsText(file);
         }
 
         function syncWheelItemsFromTextarea(rawText) {
-            const lines = String(rawText || '')
-                .split(/\r?\n/)
-                .map(line => line.trim())
-                .filter(Boolean);
-
+            const lines = String(rawText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
             if (lines.length >= 2) {
                 WHEEL_ITEMS = lines;
                 const resEl = document.getElementById('wheel-result-text');
-                if (resEl && !isSpinningWheel) {
-                    resEl.textContent = 'Sẵn sàng quay thưởng!';
-                }
+                if (resEl && !isSpinningWheel) resEl.textContent = 'Sẵn sàng quay thưởng!';
                 drawLuckyWheel();
             } else {
                 const resEl = document.getElementById('wheel-result-text');
@@ -2277,17 +2161,13 @@
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
-
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const radius = Math.min(cx, cy) - 6;
+            const cx = canvas.width / 2, cy = canvas.height / 2, radius = Math.min(cx, cy) - 6;
             const colors = ['#0ea5e9', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444'];
             const slice = (Math.PI * 2) / WHEEL_ITEMS.length;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             WHEEL_ITEMS.forEach((label, idx) => {
-                const start = wheelAngle + idx * slice;
-                const end = start + slice;
+                const start = wheelAngle + idx * slice, end = start + slice;
                 ctx.beginPath();
                 ctx.moveTo(cx, cy);
                 ctx.arc(cx, cy, radius, start, end);
@@ -2321,7 +2201,6 @@
             if (isSpinningWheel) return;
             isSpinningWheel = true;
             playSystemSound('click');
-
             const startAngle = wheelAngle;
             const extraSpins = (5 + Math.random() * 4) * Math.PI * 2;
             const targetAngle = startAngle + extraSpins;
@@ -2334,13 +2213,10 @@
                 const easeOut = 1 - Math.pow(1 - t, 3);
                 wheelAngle = startAngle + (targetAngle - startAngle) * easeOut;
                 drawLuckyWheel();
-
-                if (t < 1) {
-                    requestAnimationFrame(step);
-                } else {
+                if (t < 1) requestAnimationFrame(step);
+                else {
                     isSpinningWheel = false;
                     const slice = (Math.PI * 2) / WHEEL_ITEMS.length;
-                    // Mũi tên nằm ở đỉnh trên (góc 3*PI/2) và chỉ xuống tâm vòng quay
                     const pointerAngle = (Math.PI * 1.5 - (wheelAngle % (Math.PI * 2)) + Math.PI * 4) % (Math.PI * 2);
                     const hitIdx = Math.floor(pointerAngle / slice) % WHEEL_ITEMS.length;
                     const resEl = document.getElementById('wheel-result-text');
@@ -2351,9 +2227,6 @@
             requestAnimationFrame(step);
         }
 
-        /* =====================================================================
-           ĐỒNG HỒ THỜI GIAN THỰC, KHÓA PHÍM & SỰ KIỆN TOÀN HỆ THỐNG
-           ===================================================================== */
         function updateClockDisplay() {
             const now = new Date();
             const hh = String(now.getHours()).padStart(2, '0');
@@ -2389,11 +2262,8 @@
             const overlay = document.getElementById('screen-test-overlay');
             if (overlay && !overlay.classList.contains('hidden')) {
                 e.preventDefault();
-                if (e.key === 'Escape') {
-                    exitScreenPixelTest();
-                } else {
-                    nextScreenTestColor();
-                }
+                if (e.key === 'Escape') exitScreenPixelTest();
+                else nextScreenTestColor();
                 return;
             }
 
@@ -2420,20 +2290,43 @@
             }
         });
 
-        window.addEventListener('DOMContentLoaded', () => {
-            customWallpapers = loadCustomWallpapersFromStorage();
-            const savedWall = loadSavedWallpaperState();
-            const wallEl = document.getElementById('desktop-wallpaper');
-            if (savedWall && wallEl) {
-                wallEl.style.backgroundImage = `url("${savedWall.url}")`;
-                currentWallpaperName = savedWall.name;
+        function initLongTrueOS() {
+            if (hasBootStarted) return;
+            hasBootStarted = true;
+            try {
+                customWallpapers = loadCustomWallpapersFromStorage();
+                const lockWallEl = document.getElementById('lockscreen-wallpaper');
+                if (lockWallEl) {
+                    lockWallEl.style.backgroundImage = `url("${LOCKSCREEN_WALLPAPER_URL}")`;
+                }
+                const savedWall = loadSavedWallpaperState();
+                const wallEl = document.getElementById('desktop-wallpaper');
+                if (wallEl) {
+                    if (savedWall && savedWall.url) {
+                        wallEl.style.backgroundImage = `url("${savedWall.url}")`;
+                        currentWallpaperName = savedWall.name;
+                    } else {
+                        const defaultWall = WALLPAPER_PRESETS.find(w => w.name === 'True Rainbow Screenshot 34') || WALLPAPER_PRESETS[0];
+                        wallEl.style.backgroundImage = `url("${defaultWall.url}")`;
+                        currentWallpaperName = defaultWall.name;
+                    }
+                }
+                renderDesktopAndStartMenu();
+                updateClockDisplay();
+                updateVolumeUI();
+                setInterval(updateClockDisplay, 1000);
+                startBootSequence(false);
+            } catch (err) {
+                forceEnterDesktopNow();
             }
-            renderDesktopAndStartMenu();
-            updateClockDisplay();
-            updateVolumeUI();
-            setInterval(updateClockDisplay, 1000);
-            startBootSequence(false);
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLongTrueOS);
+        } else {
+            initLongTrueOS();
+        }
+        window.addEventListener('load', initLongTrueOS);
     </script>
 </body>
 </html>
